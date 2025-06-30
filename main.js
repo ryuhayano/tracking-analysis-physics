@@ -70,14 +70,20 @@ document.getElementById('pauseBtn').onclick = () => video.pause();
 
 document.getElementById('nextFrameBtn').onclick = () => {
   video.pause();
-  video.currentTime += 1 / fps;
-  updateCurrentFrameLabel();
+  let frame = Math.round(video.currentTime * fps);
+  if (frame < endFrame) {
+    video.currentTime = (frame + 1) / fps;
+    updateCurrentFrameLabel();
+  }
 };
 
 document.getElementById('prevFrameBtn').onclick = () => {
   video.pause();
-  video.currentTime -= 1 / fps;
-  updateCurrentFrameLabel();
+  let frame = Math.round(video.currentTime * fps);
+  if (frame > startFrame) {
+    video.currentTime = (frame - 1) / fps;
+    updateCurrentFrameLabel();
+  }
 };
 
 // --- スケール・原点・回転設定用 追加コード ---
