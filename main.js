@@ -24,6 +24,11 @@ let trackingData = []; // {frame, x, y}
 
 const manualTrackBtn = document.getElementById('manualTrackBtn');
 manualTrackBtn.onclick = () => {
+  // 原点・スケール未設定時は警告
+  if (scalePoints.length < 2 || !scaleLength || !originPoint) {
+    alert('原点とスケールが未設定です。先に原点・スケールを設定してください。');
+    return;
+  }
   trackingMode = !trackingMode;
   if (trackingMode) {
     updateGuideText('物体の位置をクリックしてください（1点ごとにフレームが進みます）');
@@ -112,7 +117,7 @@ const setScaleBtn = document.getElementById('setScaleBtn');
 setScaleBtn.onclick = () => {
   mode = 'set-scale';
   scalePoints = [];
-  updateGuideText('スケール設定: 終点をクリックしてください');
+  updateGuideText('スケール設定: 始点と終点をクリックしてください');
   disableVideoControls(true);
 };
 
@@ -266,7 +271,7 @@ function drawOverlay() {
     ctx.fillStyle = 'blue';
     scalePoints.forEach(pt => {
       ctx.beginPath();
-      ctx.arc(pt.x - cw / 2, pt.y - ch / 2, 7, 0, 2 * Math.PI);
+      ctx.arc(pt.x - cw / 2, pt.y - ch / 2, 5, 0, 2 * Math.PI);
       ctx.fill();
     });
     // 原点
@@ -364,14 +369,13 @@ canvas.addEventListener('click', function(e) {
     // そのままcanvas座標として記録
     if (mode === 'set-scale') {
       scalePoints.push({ x, y });
-      console.log('スケール点追加:', {x, y}, '現在のスケール点:', scalePoints);
       drawOverlay(); // まず青マーカーを描画
       if (scalePoints.length === 2) {
         setTimeout(() => {
           const len = prompt('2点間の実際の長さをメートル単位で入力してください');
           if (len && !isNaN(len)) {
             scaleLength = parseFloat(len);
-            console.log('スケール長設定:', scaleLength);
+            drawOverlay(); // スケール設定完了時に座標軸を表示
           } else {
             scaleLength = null;
             alert('有効な数値を入力してください');
@@ -381,17 +385,16 @@ canvas.addEventListener('click', function(e) {
           disableVideoControls(false);
         }, 50); // 描画後にpromptを出す
       } else {
-        updateGuideText('スケール設定: 終点をクリックしてください');
+        updateGuideText('スケール設定: 2点目（終点）をクリックしてください');
       }
       return;
     } else if (mode === 'set-origin') {
       originPoint = { x, y };
-      console.log('原点設定:', {x, y});
       mode = null;
       updateGuideText('');
       disableVideoControls(false);
+      drawOverlay(); // 原点設定完了時に座標軸を表示
     }
-    drawOverlay();
     return;
   }
 
@@ -479,10 +482,9 @@ video.addEventListener('timeupdate', function() {
   const frame = Math.round(video.currentTime * fps);
   frameSlider.value = frame;
   updateCurrentFrameLabel();
-  if (frame >= endFrame) {
+  // 終了フレームに到達したら一時停止のみ（巻き戻しやスライダー操作は妨げない）
+  if (frame >= endFrame && !video.paused) {
     video.pause();
-    video.currentTime = endFrame / fps;
-    updateCurrentFrameLabel();
   }
 });
 
@@ -533,7 +535,11 @@ exportCsvBtn.onclick = () => {
   URL.revokeObjectURL(url);
 };
 
-// 座標軸をスケール線の回転を反映して描画（X:鉛直, Y:水平, 正負方向に目盛り）
+/**
+ * 座標軸を描画（スケール線の回転を反映）
+ * X軸: 緑色、スケール線の垂直方向
+ * Y軸: 青色、スケール線の方向
+ */
 function drawCoordinateAxes(ctx, cw, ch) {
   if (!originPoint || scalePoints.length < 2 || !scaleLength) return;
   ctx.save();
@@ -542,9 +548,18 @@ function drawCoordinateAxes(ctx, cw, ch) {
   const dx = p1.x - p0.x;
   const dy = p1.y - p0.y;
   const pixelDist = Math.sqrt(dx * dx + dy * dy);
-  const theta = Math.atan2(dy, dx);
-  const axisLength = Math.min(cw, ch) * 0.25;
-  // Y軸（青, 水平, スケール線の回転を反映）
+  const theta = Math.atan2(dy, dx); // スケール線の角度
+  let axisLength = Math.min(cw, ch) * 0.25;
+  // Y軸の上端がcanvas外に出る場合は短くする
+  const yAxisEndX = originPoint.x - cw / 2 + axisLength * Math.cos(theta);
+  const yAxisEndY = originPoint.y - ch / 2 + axisLength * Math.sin(theta);
+  const yAxisStartX = originPoint.x - cw / 2 - axisLength * Math.cos(theta);
+  const yAxisStartY = originPoint.y - ch / 2 - axisLength * Math.sin(theta);
+  if (yAxisStartY < -ch / 2 + 10) {
+    const available = (originPoint.y - 10) - 0;
+    axisLength = Math.min(axisLength, available / Math.abs(Math.sin(theta)));
+  }
+  // Y軸（スケール線の方向）
   ctx.strokeStyle = '#00f';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -552,36 +567,38 @@ function drawCoordinateAxes(ctx, cw, ch) {
   ctx.lineTo(originPoint.x - cw / 2 + axisLength * Math.cos(theta), originPoint.y - ch / 2 + axisLength * Math.sin(theta));
   ctx.stroke();
   // Y軸矢印
+  const arrowYx = originPoint.x - cw / 2 - axisLength * Math.cos(theta);
+  const arrowYy = originPoint.y - ch / 2 - axisLength * Math.sin(theta);
+  ctx.save();
+  ctx.translate(arrowYx, arrowYy);
+  ctx.rotate(theta - Math.PI / 2);
   ctx.beginPath();
-  const arrowY = originPoint.x - cw / 2 + axisLength * Math.cos(theta);
-  const arrowYy = originPoint.y - ch / 2 + axisLength * Math.sin(theta);
-  ctx.moveTo(arrowY, arrowYy);
-  ctx.lineTo(arrowY - 10 * Math.cos(theta) - 6 * Math.sin(theta), arrowYy - 10 * Math.sin(theta) + 6 * Math.cos(theta));
-  ctx.moveTo(arrowY, arrowYy);
-  ctx.lineTo(arrowY - 10 * Math.cos(theta) + 6 * Math.sin(theta), arrowYy - 10 * Math.sin(theta) - 6 * Math.cos(theta));
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-6, 15);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(6, 15);
   ctx.stroke();
-  // X軸（緑, 鉛直, スケール線の回転を反映）
+  ctx.restore();
+  // X軸（スケール線の法線方向）
   ctx.strokeStyle = '#0f0';
   ctx.beginPath();
   ctx.moveTo(originPoint.x - cw / 2 - axisLength * Math.sin(theta), originPoint.y - ch / 2 + axisLength * Math.cos(theta));
   ctx.lineTo(originPoint.x - cw / 2 + axisLength * Math.sin(theta), originPoint.y - ch / 2 - axisLength * Math.cos(theta));
   ctx.stroke();
   // X軸矢印
-  ctx.beginPath();
-  const arrowX = originPoint.x - cw / 2 + axisLength * Math.sin(theta);
+  const arrowXx = originPoint.x - cw / 2 + axisLength * Math.sin(theta);
   const arrowXy = originPoint.y - ch / 2 - axisLength * Math.cos(theta);
-  ctx.moveTo(arrowX, arrowXy);
-  ctx.lineTo(arrowX - 6 * Math.sin(theta) + 10 * Math.cos(theta), arrowXy + 6 * Math.cos(theta) + 10 * Math.sin(theta));
-  ctx.moveTo(arrowX, arrowXy);
-  ctx.lineTo(arrowX + 6 * Math.sin(theta) + 10 * Math.cos(theta), arrowXy - 6 * Math.cos(theta) + 10 * Math.sin(theta));
+  ctx.save();
+  ctx.translate(arrowXx, arrowXy);
+  ctx.rotate(theta);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-6, 15);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(6, 15);
   ctx.stroke();
-  // ラベル
-  ctx.fillStyle = '#0f0';
-  ctx.font = '14px Arial';
-  ctx.fillText('X', originPoint.x - cw / 2 + (axisLength + 15) * Math.sin(theta), originPoint.y - ch / 2 - (axisLength + 15) * Math.cos(theta));
-  ctx.fillStyle = '#00f';
-  ctx.fillText('Y', originPoint.x - cw / 2 + (axisLength + 15) * Math.cos(theta), originPoint.y - ch / 2 + (axisLength + 15) * Math.sin(theta));
-  // 目盛り（Y軸正負方向）
+  ctx.restore();
+  // 目盛り（Y軸）
   const scale = scaleLength / pixelDist;
   const tickSpacing = scaleLength / 10;
   const pixelTickSpacing = tickSpacing / scale;
@@ -591,28 +608,52 @@ function drawCoordinateAxes(ctx, cw, ch) {
     if (i === 0) continue;
     const tx = originPoint.x - cw / 2 + i * pixelTickSpacing * Math.cos(theta);
     const ty = originPoint.y - ch / 2 + i * pixelTickSpacing * Math.sin(theta);
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(theta + Math.PI / 2);
     ctx.beginPath();
-    ctx.moveTo(tx - 5 * Math.sin(theta), ty + 5 * Math.cos(theta));
-    ctx.lineTo(tx + 5 * Math.sin(theta), ty - 5 * Math.cos(theta));
+    ctx.moveTo(-5, 0);
+    ctx.lineTo(5, 0);
     ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(tx, ty);
     ctx.fillStyle = '#00f';
-    ctx.font = '10px Arial';
-    ctx.fillText(((-i) * tickSpacing).toFixed(1), tx + 8 * Math.cos(theta), ty + 8 * Math.sin(theta));
+    ctx.font = '8px Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((-i * tickSpacing).toFixed(1), 8, 0);
+    ctx.restore();
   }
-  // X軸正負方向の目盛り
   ctx.strokeStyle = '#0f0';
   for (let i = -5; i <= 5; i++) {
     if (i === 0) continue;
     const tx = originPoint.x - cw / 2 + i * pixelTickSpacing * Math.sin(theta);
     const ty = originPoint.y - ch / 2 - i * pixelTickSpacing * Math.cos(theta);
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(theta);
     ctx.beginPath();
-    ctx.moveTo(tx - 5 * Math.cos(theta), ty - 5 * Math.sin(theta));
-    ctx.lineTo(tx + 5 * Math.cos(theta), ty + 5 * Math.sin(theta));
+    ctx.moveTo(0, -5);
+    ctx.lineTo(0, 5);
     ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(tx, ty);
     ctx.fillStyle = '#0f0';
-    ctx.font = '10px Arial';
-    ctx.fillText((i * tickSpacing).toFixed(1), tx - 8 * Math.sin(theta), ty + 8 * Math.cos(theta));
+    ctx.font = '8px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText((i * tickSpacing).toFixed(1), 0, -8);
+    ctx.restore();
   }
   ctx.restore();
 }
+
+const resetBtn = document.getElementById('resetBtn');
+resetBtn.onclick = () => {
+  if (confirm('本当に最初からやり直しますか？（未保存のデータは失われます）')) {
+    window.location.reload();
+  }
+};
 

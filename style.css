@@ -60,3 +60,11 @@ canvas, video {
   display: block;
 }
 
+input[type="file"] {
+  font-size: 16px;
+  padding: 6px 12px;
+  height: 38px;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
