@@ -11,47 +11,17 @@ h1 {
   margin-bottom: 16px;
 }
 
-.app-title {
-  font-size: 2.2em;
-  font-weight: bold;
-  text-align: center;
-  margin-bottom: 12px;
-  margin-top: 0;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.app-logo {
-  height: 1em;
-  width: auto;
-  vertical-align: middle;
-  display: inline-block;
-}
-
 .control-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
   background: #fff;
-  border-radius: 12px;
-  margin: 24px auto 20px auto;
-  padding: 24px 24px 16px 24px;
+  border-radius: 8px;
+  margin: 0 auto 20px auto;
+  padding: 16px;
+  display: inline-block;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  max-width: 900px;
-  min-width: 320px;
-  gap: 12px;
 }
 
-.button-group, .video-controls, .frame-settings {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
+.button-group, .video-controls {
+  margin-top: 8px;
 }
 
 .button-group button, .video-controls button {
@@ -91,17 +61,10 @@ canvas, video {
 }
 
 input[type="file"] {
-  font-size: 0.95em;
-  padding: 2px 8px;
-  margin: 0 2px;
+  font-size: 16px;
+  padding: 6px 12px;
   height: 38px;
   box-sizing: border-box;
   cursor: pointer;
-}
-
-.file-input-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 

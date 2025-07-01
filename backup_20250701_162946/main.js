@@ -40,35 +40,23 @@ manualTrackBtn.onclick = () => {
 };
 
 function resizeCanvasToFit() {
-  const canvasRect = canvas.getBoundingClientRect();
-  const slider = document.getElementById('frameSlider');
-  const sliderHeight = slider ? slider.offsetHeight : 0;
-  const verticalMargin = 24; // 下部余白
-
-  // canvasの上端からwindow下端までの高さ
-  const availableHeight = window.innerHeight - canvasRect.top - sliderHeight - verticalMargin;
-  const availableWidth = window.innerWidth - 24;
-
-  let w = availableWidth;
-  let h = availableHeight;
-
+  // 親要素の幅、高さ、ウィンドウサイズを考慮してcanvasサイズを決定
+  const container = document.querySelector('.video-container');
+  const parentWidth = container.clientWidth;
+  const parentHeight = window.innerHeight - container.getBoundingClientRect().top - 40; // 余白考慮
+  let w = Math.min(MAX_CANVAS_WIDTH, parentWidth);
+  let h = Math.min(MAX_CANVAS_HEIGHT, parentHeight);
+  // 動画のアスペクト比を優先
   if (video.videoWidth && video.videoHeight) {
-    const aspect = video.videoWidth / video.videoHeight;
-    if (w / h > aspect) {
-      h = availableHeight;
-      w = h * aspect;
+    const vr = video.videoWidth / video.videoHeight;
+    if (w / h > vr) {
+      w = h * vr;
     } else {
-      w = availableWidth;
-      h = w / aspect;
+      h = w / vr;
     }
   }
-  canvas.width = Math.floor(w);
-  canvas.height = Math.floor(h);
-
-  zoomFactor = 1.0;
-  zoomOffsetX = 0;
-  zoomOffsetY = 0;
-  drawOverlay();
+  canvas.width = Math.round(w);
+  canvas.height = Math.round(h);
 }
 
 videoInput.addEventListener('change', function() {
@@ -206,9 +194,6 @@ let zoomOffsetY = 0;
 let isDragging = false;
 let dragStart = { x: 0, y: 0 };
 let dragOffsetStart = { x: 0, y: 0 };
-let mouseDownOnCanvas = false;
-let clickStart = null;
-let dragHappened = false;
 
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
@@ -242,111 +227,83 @@ updateZoomLabel();
 // canvasドラッグでオフセット移動
 canvas.addEventListener('mousedown', function(e) {
   isDragging = true;
-  dragHappened = false;
   dragStart = { x: e.clientX, y: e.clientY };
   dragOffsetStart = { x: zoomOffsetX, y: zoomOffsetY };
-  mouseDownOnCanvas = true;
-  clickStart = { x: e.clientX, y: e.clientY };
 });
-canvas.addEventListener('mousemove', function(e) {
+window.addEventListener('mousemove', function(e) {
   if (isDragging) {
-    dragHappened = true;
-    // ドラッグ中
     const dx = e.clientX - dragStart.x;
     const dy = e.clientY - dragStart.y;
     zoomOffsetX = dragOffsetStart.x + dx;
     zoomOffsetY = dragOffsetStart.y + dy;
     drawOverlay();
-    canvas.style.cursor = 'grabbing';
-  } else {
-    // ドラッグしていないときのカーソル切り替え
-    if (mode === 'set-scale' || mode === 'set-origin') {
-      canvas.style.cursor = 'crosshair';
-    } else if (trackingMode) {
-      canvas.style.cursor = 'crosshair';
-    } else {
-      canvas.style.cursor = 'grab';
-    }
   }
 });
-canvas.addEventListener('mouseup', function(e) {
-  if (!isDragging) return;
+window.addEventListener('mouseup', function() {
   isDragging = false;
-  if (!mouseDownOnCanvas) return;
-  mouseDownOnCanvas = false;
-  if (!clickStart) return;
-  const dx = e.clientX - clickStart.x;
-  const dy = e.clientY - clickStart.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  // trackingMode時、「ドラッグしていない」かつ「距離が小さい」場合のみ記録
-  if (trackingMode && !dragHappened && dist < 5) {
-    const { x, y } = getCanvasCoords(e);
-    const phys = getPhysicalCoords(x, y);
-    const frame = Math.round(video.currentTime * fps);
-    if (phys) {
-      trackingData.push({ frame, x: -phys.y, y: -phys.x });
-      drawOverlay();
-      video.currentTime += 1 / fps;
-      updateCurrentFrameLabel();
-    } else {
-      alert('スケール・原点・スケール長が未設定です');
-    }
-  }
-  clickStart = null;
-  dragHappened = false;
-  // カーソルをcrosshairに戻す
-  if (trackingMode) {
-    canvas.style.cursor = 'crosshair';
-  }
-});
-window.addEventListener('mouseup', function(e) {
-  isDragging = false;
-  mouseDownOnCanvas = false;
-  clickStart = null;
-  dragHappened = false;
 });
 
 // drawOverlay: zoomFactorとオフセットを反映
 function drawOverlay() {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (video.videoWidth && video.videoHeight) {
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  }
-  // スケール点
-  ctx.fillStyle = 'blue';
-  scalePoints.forEach(pt => {
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 5, 0, 2 * Math.PI);
-    ctx.fill();
-  });
-  // 原点
-  if (originPoint) {
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(originPoint.x, originPoint.y, 9, 0, 2 * Math.PI);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(originPoint.x - 12, originPoint.y);
-    ctx.lineTo(originPoint.x + 12, originPoint.y);
-    ctx.moveTo(originPoint.x, originPoint.y - 12);
-    ctx.lineTo(originPoint.x, originPoint.y + 12);
-    ctx.stroke();
-  }
-  // 記録点（赤丸）
-  ctx.fillStyle = 'red';
-  trackingData.forEach(d => {
-    const pt = physicalToCanvas(-d.y, -d.x);
-    if (pt) {
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 3, 0, 2 * Math.PI);
-      ctx.fill();
+  // アスペクト比維持で動画を中央に描画
+  const cw = canvas.width, ch = canvas.height;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  let dw = cw, dh = ch, dx = 0, dy = 0;
+  if (vw && vh) {
+    const cr = cw / ch, vr = vw / vh;
+    if (cr > vr) {
+      dh = ch;
+      dw = ch * vr;
+      dx = (cw - dw) / 2;
+    } else {
+      dw = cw;
+      dh = cw / vr;
+      dy = (ch - dh) / 2;
     }
-  });
-  
-  // 座標軸を描画
-  drawCoordinateAxes(ctx, canvas.width, canvas.height);
+    // ズーム・オフセットを反映
+    ctx.save();
+    ctx.translate(dx + dw / 2 + zoomOffsetX, dy + dh / 2 + zoomOffsetY);
+    ctx.scale(zoomFactor, zoomFactor);
+    ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
+    // スケール点
+    ctx.fillStyle = 'blue';
+    scalePoints.forEach(pt => {
+      ctx.beginPath();
+      ctx.arc(pt.x - cw / 2, pt.y - ch / 2, 5, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+    // 原点
+    if (originPoint) {
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(originPoint.x - cw / 2, originPoint.y - ch / 2, 9, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(originPoint.x - 12 - cw / 2, originPoint.y - ch / 2);
+      ctx.lineTo(originPoint.x + 12 - cw / 2, originPoint.y - ch / 2);
+      ctx.moveTo(originPoint.x - cw / 2, originPoint.y - 12 - ch / 2);
+      ctx.lineTo(originPoint.x - cw / 2, originPoint.y + 12 - ch / 2);
+      ctx.stroke();
+    }
+    // 記録点（赤丸）
+    ctx.fillStyle = 'red';
+    trackingData.forEach(d => {
+      const pt = physicalToCanvas(-d.y, -d.x);
+      if (pt) {
+        ctx.beginPath();
+        ctx.arc(pt.x - cw / 2, pt.y - ch / 2, 3, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    });
+    
+    // 座標軸を描画
+    drawCoordinateAxes(ctx, cw, ch);
+    
+    ctx.restore();
+  }
 }
 
 // クリック座標もズーム・オフセットを考慮
@@ -380,6 +337,33 @@ function getCanvasCoords(e) {
 // canvasクリック時の座標取得をgetCanvasCoordsに変更
 canvas.addEventListener('click', function(e) {
   const { x, y } = getCanvasCoords(e);
+
+  if (trackingMode) {
+    const phys = getPhysicalCoords(x, y);
+    const frame = Math.round(video.currentTime * fps);
+    console.log('trackingModeクリック:', {x, y, phys, frame});
+    if (phys) {
+      // trackingDataへの保存時のみ、xとyを逆転し、両方とも符号を反転して保存
+      trackingData.push({ frame, x: -phys.y, y: -phys.x });
+      console.log('trackingData:', trackingData);
+      
+      // デバッグ: 逆変換で位置を確認
+      const backToCanvas = physicalToCanvas(phys.x, phys.y);
+      console.log('逆変換確認:', {original: {x, y}, backToCanvas, diff: {
+        x: Math.abs(x - backToCanvas.x),
+        y: Math.abs(y - backToCanvas.y)
+      }});
+      
+      drawOverlay();
+      // 1フレーム進める
+      video.currentTime += 1 / fps;
+      updateCurrentFrameLabel();
+      console.log('video.currentTime:', video.currentTime);
+    } else {
+      alert('スケール・原点・スケール長が未設定です');
+    }
+    return;
+  }
 
   if (mode) {
     // そのままcanvas座標として記録
@@ -534,9 +518,9 @@ exportCsvBtn.onclick = () => {
   }
   let csv = 'time(s),x(m),y(m)\n';
   trackingData.forEach(d => {
-    const t = ((d.frame - startFrame) / fps).toFixed(3);
+    const t = ((d.frame - startFrame) / fps).toFixed(6);
     // 物理座標変換と一貫性を保つ（XとYの入れ替えなし）
-    csv += `${t},${d.x.toFixed(3)},${d.y.toFixed(3)}\n`;
+    csv += `${t},${d.x},${d.y}\n`;
   });
   let fname = prompt('保存するファイル名を入力してください（例: data.csv）', 'tracking_data.csv');
   if (!fname) fname = 'tracking_data.csv';
