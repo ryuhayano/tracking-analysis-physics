@@ -40,30 +40,74 @@ manualTrackBtn.onclick = () => {
 };
 
 function resizeCanvasToFit() {
-  const canvasRect = canvas.getBoundingClientRect();
+  const controlPanel = document.querySelector('.control-panel');
+  const controlPanelHeight = controlPanel ? controlPanel.offsetHeight : 0;
+  const zoomControls = document.querySelector('.zoom-controls');
+  const zoomControlsHeight = zoomControls ? zoomControls.offsetHeight : 0;
   const slider = document.getElementById('frameSlider');
-  const sliderHeight = slider ? slider.offsetHeight : 0;
-  const verticalMargin = 24; // 下部余白
+  const verticalMargin = 64; // 下部余白を大きめに
+  const horizontalMargin = 24; // 左右余白
+  const containerPadding = 20; // video-containerのpadding等
+  const MIN_CANVAS_WIDTH = 100;
+  const MIN_CANVAS_HEIGHT = 100;
 
-  // canvasの上端からwindow下端までの高さ
-  const availableHeight = window.innerHeight - canvasRect.top - sliderHeight - verticalMargin;
-  const availableWidth = window.innerWidth - 24;
+  // スライダーを一時的に最小幅・高さで仮表示
+  if (slider) {
+    slider.style.width = '100px';
+    slider.style.maxWidth = '100vw';
+  }
+
+  // 利用可能な領域を計算（全体に8%の余裕を持たせる）
+  let availableHeight = (window.innerHeight - controlPanelHeight - zoomControlsHeight - verticalMargin - containerPadding) * 0.92;
+  let availableWidth = window.innerWidth - horizontalMargin * 2 - containerPadding;
 
   let w = availableWidth;
   let h = availableHeight;
+  let sliderHeight = slider ? slider.offsetHeight : 0;
 
   if (video.videoWidth && video.videoHeight) {
     const aspect = video.videoWidth / video.videoHeight;
-    if (w / h > aspect) {
-      h = availableHeight;
-      w = h * aspect;
-    } else {
+    // まず高さを仮決定
+    h = Math.min(availableHeight - sliderHeight - 16, availableWidth / aspect);
+    w = h * aspect;
+    // 幅がはみ出す場合は幅優先
+    if (w > availableWidth) {
       w = availableWidth;
       h = w / aspect;
     }
+    // スライダー分の高さを再考慮
+    if (h + sliderHeight + 16 > availableHeight) {
+      h = availableHeight - sliderHeight - 16;
+      w = h * aspect;
+    }
   }
+
+  // 最小サイズを保証
+  w = Math.max(MIN_CANVAS_WIDTH, w);
+  h = Math.max(MIN_CANVAS_HEIGHT, h);
+
   canvas.width = Math.floor(w);
   canvas.height = Math.floor(h);
+
+  // スライダーの幅もcanvasに合わせる
+  if (slider) {
+    slider.style.width = Math.floor(w) + 'px';
+    slider.style.maxWidth = '100vw';
+  }
+
+  // canvasの高さを決めた後、スライダーの高さを再取得し、必要ならcanvasの高さを再調整
+  if (slider) {
+    let newSliderHeight = slider.offsetHeight;
+    if (h + newSliderHeight + 16 > availableHeight) {
+      h = availableHeight - newSliderHeight - 16;
+      h = Math.max(MIN_CANVAS_HEIGHT, h);
+      w = h * (video.videoWidth / video.videoHeight);
+      w = Math.max(MIN_CANVAS_WIDTH, w);
+      canvas.width = Math.floor(w);
+      canvas.height = Math.floor(h);
+      slider.style.width = Math.floor(w) + 'px';
+    }
+  }
 
   zoomFactor = 1.0;
   zoomOffsetX = 0;
@@ -78,6 +122,13 @@ videoInput.addEventListener('change', function() {
     video.src = url;
     video.controls = false;
     fileNameSpan.textContent = file.name;
+    
+    // 動画の読み込みが完了したらリサイズを実行
+    video.addEventListener('loadeddata', function() {
+      setTimeout(() => {
+        resizeCanvasToFit();
+      }, 100);
+    }, { once: true });
   }
 });
 
@@ -179,7 +230,11 @@ function physicalToCanvas(x_phys, y_phys) {
 
 // 動画のメタデータが読み込まれたらcanvasサイズを合わせる
 video.addEventListener('loadedmetadata', function() {
-  resizeCanvasToFit();
+  // 少し遅延を入れてからリサイズを実行（DOM要素のサイズが確定してから）
+  setTimeout(() => {
+    resizeCanvasToFit();
+  }, 100);
+  
   fps = 30;
   fpsInput.value = fps;
   totalFrames = Math.floor(video.duration * fps);
@@ -196,8 +251,12 @@ video.addEventListener('loadedmetadata', function() {
 
 // ウィンドウリサイズ時もcanvasサイズを再調整
 window.addEventListener('resize', function() {
-  resizeCanvasToFit();
-  drawOverlay();
+  // リサイズの頻度を制限（パフォーマンス向上）
+  clearTimeout(window.resizeTimeout);
+  window.resizeTimeout = setTimeout(() => {
+    resizeCanvasToFit();
+    drawOverlay();
+  }, 100);
 });
 
 let zoomFactor = 1.0;
