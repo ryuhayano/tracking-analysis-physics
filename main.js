@@ -20,10 +20,123 @@ const endFrameInput = document.getElementById('endFrameInput');
 const currentFrameLabel = document.getElementById('currentFrameLabel');
 
 let trackingMode = false;
-let trackingData = []; // {frame, x, y}
+let trackingData = []; // [{frame, positions: [{x, y}, ...]}]
+let currentObjectIndex = 0; // 今どの物体のクリック待ちか
 
-const manualTrackBtn = document.getElementById('manualTrackBtn');
-manualTrackBtn.onclick = () => {
+// 物体ごとの色（最大2個、拡張可）
+const objectColors = ['magenta', 'orange', 'cyan', 'lime', 'purple', 'brown'];
+
+// --- 物体数・追跡開始ボタン ---
+const objectCountSelect = document.getElementById('objectCountSelect');
+const startTrackingBtn = document.getElementById('startTrackingBtn');
+let objectCount = 1;
+objectCountSelect.addEventListener('change', () => {
+  objectCount = parseInt(objectCountSelect.value) || 1;
+});
+objectCount = parseInt(objectCountSelect.value) || 1;
+
+// Undoボタンの表示制御
+const undoBtn = document.getElementById('undoBtn');
+undoBtn.style.display = 'none';
+
+// ガイドテキスト表示用要素を追加
+let guideDiv = document.getElementById('guideText');
+if (!guideDiv) {
+  guideDiv = document.createElement('div');
+  guideDiv.id = 'guideText';
+  guideDiv.style.margin = '8px';
+  guideDiv.style.fontWeight = 'bold';
+  guideDiv.style.color = '#c00';
+  document.querySelector('.video-container').prepend(guideDiv);
+}
+// ガイドテキスト本体用spanを追加
+let guideTextLabel = document.getElementById('guideTextLabel');
+if (!guideTextLabel) {
+  guideTextLabel = document.createElement('span');
+  guideTextLabel.id = 'guideTextLabel';
+  guideDiv.appendChild(guideTextLabel);
+}
+
+function updateGuideText(text, color) {
+  guideTextLabel.textContent = text || '';
+  if (color) {
+    guideDiv.style.color = color;
+  } else {
+    guideDiv.style.color = '#c00';
+  }
+}
+
+// Undoボタンをガイドテキストの右横に移動する関数
+function moveUndoBtnToGuide() {
+  if (guideDiv.contains(undoBtn)) {
+    // 既にguideDiv内にある場合は何もしない
+  } else {
+    guideDiv.appendChild(undoBtn);
+  }
+  undoBtn.style.display = '';
+  undoBtn.style.marginLeft = '8px'; // 余白控えめ
+  undoBtn.style.fontSize = '0.95em'; // 小さめ
+  undoBtn.style.background = '#f9f9f9'; // 薄いグレー
+  undoBtn.style.border = '1px solid #aaa'; // 細い枠線
+  undoBtn.style.color = '#c00';
+  undoBtn.style.fontWeight = 'normal';
+  undoBtn.style.borderRadius = '4px';
+  undoBtn.style.padding = '1px 8px'; // 小さめ
+  undoBtn.style.cursor = 'pointer';
+}
+// Undoボタンを元の位置に戻す関数
+function moveUndoBtnToPanel() {
+  const btnGroup = document.querySelector('.button-group');
+  if (btnGroup && !btnGroup.contains(undoBtn)) {
+    btnGroup.insertBefore(undoBtn, btnGroup.children[4]); // 追跡開始ボタンの次
+  }
+  undoBtn.style.display = 'none';
+  undoBtn.style = '';
+}
+
+function updateUndoBtnVisibility() {
+  if (trackingMode) {
+    moveUndoBtnToGuide();
+    // ショートカット案内も表示
+    if (!document.getElementById('undoShortcutHint')) {
+      const hint = document.createElement('span');
+      hint.id = 'undoShortcutHint';
+      hint.textContent = '（ZキーまたはBackspaceでもUndo）';
+      hint.style.marginLeft = '8px';
+      hint.style.fontSize = '0.92em';
+      hint.style.color = '#888';
+      guideDiv.appendChild(hint);
+    }
+  } else {
+    // Undoボタンを完全に非表示・DOMからも削除
+    if (undoBtn.parentNode) {
+      undoBtn.parentNode.removeChild(undoBtn);
+    }
+    // ショートカット案内を消す
+    const hint = document.getElementById('undoShortcutHint');
+    if (hint) hint.remove();
+  }
+}
+
+// ショートカットキー対応
+window.addEventListener('keydown', function(e) {
+  if (!trackingMode) return;
+  if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') {
+    e.preventDefault();
+    undoBtn.click();
+  }
+});
+
+// 追跡モード終了時にUndoボタンを必ず消す（trackingMode=falseになる全ての箇所で呼ぶ）
+function endTrackingMode() {
+  trackingMode = false;
+  updateGuideText('');
+  startTrackingBtn.style.background = '';
+  objectCountSelect.disabled = false;
+  updateUndoBtnVisibility();
+}
+
+startTrackingBtn.onclick = () => {
   // 原点・スケール未設定時は警告
   if (scalePoints.length < 2 || !scaleLength || !originPoint) {
     alert('原点とスケールが未設定です。先に原点・スケールを設定してください。');
@@ -31,12 +144,14 @@ manualTrackBtn.onclick = () => {
   }
   trackingMode = !trackingMode;
   if (trackingMode) {
-    updateGuideText('物体の位置をクリックしてください（1点ごとにフレームが進みます）');
-    manualTrackBtn.style.background = '#ffd';
+    currentObjectIndex = 0;
+    updateGuideText(`物体${objectCount === 1 ? '' : '1'}の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
+    startTrackingBtn.style.background = '#ffd';
+    objectCountSelect.disabled = true;
   } else {
-    updateGuideText('');
-    manualTrackBtn.style.background = '';
+    endTrackingMode();
   }
+  updateUndoBtnVisibility();
 };
 
 function resizeCanvasToFit() {
@@ -91,8 +206,12 @@ function resizeCanvasToFit() {
 
   // スライダーの幅もcanvasに合わせる
   if (slider) {
-    slider.style.width = Math.floor(w) + 'px';
+    const sliderMaxWidth = 600;
+    const sliderMargin = 48;
+    const sliderWidth = Math.max(100, Math.min(sliderMaxWidth, window.innerWidth - sliderMargin));
+    slider.style.width = sliderWidth + 'px';
     slider.style.maxWidth = '100vw';
+    slider.style.margin = '12px auto 0 auto'; // 中央寄せを強制
   }
 
   // canvasの高さを決めた後、スライダーの高さを再取得し、必要ならcanvasの高さを再調整
@@ -105,13 +224,20 @@ function resizeCanvasToFit() {
       w = Math.max(MIN_CANVAS_WIDTH, w);
       canvas.width = Math.floor(w);
       canvas.height = Math.floor(h);
-      slider.style.width = Math.floor(w) + 'px';
+      // .video-containerの幅を取得
+      const container = document.querySelector('.video-container');
+      const containerWidth = container ? container.clientWidth : window.innerWidth;
+      const sliderMargin = 48;
+      const sliderWidth = Math.max(100, Math.min(600, containerWidth - sliderMargin));
+      slider.style.width = sliderWidth + 'px';
+      slider.style.margin = '12px auto 0 auto'; // 中央寄せを強制
     }
   }
 
-  zoomFactor = 1.0;
-  zoomOffsetX = 0;
-  zoomOffsetY = 0;
+  // ズーム状態はリセットしない
+  // zoomFactor = 1.0;
+  // zoomOffsetX = 0;
+  // zoomOffsetY = 0;
   drawOverlay();
 }
 
@@ -145,8 +271,23 @@ document.getElementById('nextFrameBtn').onclick = () => {
   }
 };
 
-document.getElementById('prevFrameBtn').onclick = () => {
-  video.pause();
+// 1フレーム戻るボタンの拡張
+const prevFrameBtn = document.getElementById('prevFrameBtn');
+const origPrevFrameOnClick = prevFrameBtn.onclick;
+prevFrameBtn.onclick = () => {
+  if (trackingMode) {
+    // trackingDataからこのフレームのデータを消す
+    const frame = Math.round(video.currentTime * fps);
+    const idx = trackingData.findIndex(d => d.frame === frame);
+    if (idx !== -1) {
+      trackingData.splice(idx, 1);
+      drawOverlay();
+    }
+    // 物体1から再入力
+    currentObjectIndex = 0;
+    updateGuideText(`物体1の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
+  }
+  // 通常の1フレーム戻る動作
   let frame = Math.round(video.currentTime * fps);
   if (frame > startFrame) {
     video.currentTime = (frame - 1) / fps;
@@ -159,21 +300,6 @@ let mode = null; // 'set-scale' | 'set-origin' | null
 let scalePoints = [];
 let originPoint = null;
 let guideText = '';
-
-// ガイドテキスト表示用要素を追加
-let guideDiv = document.getElementById('guideText');
-if (!guideDiv) {
-  guideDiv = document.createElement('div');
-  guideDiv.id = 'guideText';
-  guideDiv.style.margin = '8px';
-  guideDiv.style.fontWeight = 'bold';
-  guideDiv.style.color = '#c00';
-  document.querySelector('.video-container').prepend(guideDiv);
-}
-
-function updateGuideText(text) {
-  guideDiv.textContent = text || '';
-}
 
 // スケール設定ボタン
 const setScaleBtn = document.getElementById('setScaleBtn');
@@ -192,7 +318,7 @@ setOriginBtn.onclick = () => {
   disableVideoControls(true);
 };
 
-// 物理座標変換（X:水平, Y:鉛直, Y成分の符号反転をやめる）
+// 物理座標変換（画面基準の水平・鉛直軸に固定、スケール線の傾き分だけ補正）
 function getPhysicalCoords(canvasX, canvasY) {
   if (scalePoints.length < 2 || !scaleLength || !originPoint) return null;
   const [p0, p1] = scalePoints;
@@ -200,16 +326,24 @@ function getPhysicalCoords(canvasX, canvasY) {
   const dy = p1.y - p0.y;
   const pixelDist = Math.sqrt(dx * dx + dy * dy);
   if (pixelDist === 0) return null;
-  const theta = Math.atan2(dy, dx);
+  // theta: スケール線の鉛直（Y軸）からのずれ
+  let theta = Math.atan2(dx, -dy); // dx, -dyで鉛直基準
+  // 始点が終点より下/右の場合、符号を反転して常にY軸上向き
+  if (dy > 0) theta += Math.PI;
+  // 原点からの相対座標
   const relX = canvasX - originPoint.x;
   const relY = canvasY - originPoint.y;
+  // スケール線の傾き分だけ逆回転（画面基準の水平・鉛直軸に合わせる）
+  const x_rot =  Math.cos(-theta) * relX - Math.sin(-theta) * relY;
+  const y_rot =  Math.sin(-theta) * relX + Math.cos(-theta) * relY;
+  // Y軸方向のスケールでメートル換算
   const scale = scaleLength / pixelDist;
-  const x_phys = ( Math.cos(theta) * relX + Math.sin(theta) * relY ) * scale;
-  const y_phys = ( -Math.sin(theta) * relX + Math.cos(theta) * relY ) * scale;
+  const x_phys = x_rot * scale;
+  const y_phys = y_rot * scale;
   return { x: x_phys, y: y_phys };
 }
 
-// 物理→canvas座標（逆変換, Y成分の符号反転をやめる）
+// 物理→canvas座標（画面基準の水平・鉛直軸に固定、スケール線の傾き分だけ補正）
 function physicalToCanvas(x_phys, y_phys) {
   if (scalePoints.length < 2 || !scaleLength || !originPoint) return null;
   const [p0, p1] = scalePoints;
@@ -217,12 +351,15 @@ function physicalToCanvas(x_phys, y_phys) {
   const dy = p1.y - p0.y;
   const pixelDist = Math.sqrt(dx * dx + dy * dy);
   if (pixelDist === 0) return null;
-  const theta = Math.atan2(dy, dx);
+  let theta = Math.atan2(dx, -dy);
+  if (dy > 0) theta += Math.PI;
+  // メートル→ピクセル
   const scale = pixelDist / scaleLength;
-  const x_rot = x_phys * scale;
-  const y_rot = y_phys * scale;
-  const relX = Math.cos(theta) * x_rot - Math.sin(theta) * y_rot;
-  const relY = Math.sin(theta) * x_rot + Math.cos(theta) * y_rot;
+  // 画面基準の水平・鉛直軸からスケール線の向きに回転
+  const x_rot =  Math.cos(theta) * x_phys - Math.sin(theta) * y_phys;
+  const y_rot =  Math.sin(theta) * x_phys + Math.cos(theta) * y_phys;
+  const relX = x_rot * scale;
+  const relY = y_rot * scale;
   const x = originPoint.x + relX;
   const y = originPoint.y + relY;
   return { x: x, y: y };
@@ -272,6 +409,7 @@ let dragHappened = false;
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
+console.log('zoomInBtn:', zoomInBtn, 'zoomOutBtn:', zoomOutBtn, 'zoomResetBtn:', zoomResetBtn);
 const zoomLevelLabel = document.getElementById('zoomLevelLabel');
 
 function updateZoomLabel() {
@@ -279,6 +417,7 @@ function updateZoomLabel() {
 }
 
 zoomInBtn.onclick = () => {
+  console.log('zoom in clicked');
   zoomFactor = Math.min(zoomFactor * 1.25, 10);
   updateZoomLabel();
   drawOverlay();
@@ -343,10 +482,38 @@ canvas.addEventListener('mouseup', function(e) {
     const phys = getPhysicalCoords(x, y);
     const frame = Math.round(video.currentTime * fps);
     if (phys) {
-      trackingData.push({ frame, x: -phys.y, y: -phys.x });
+      // 解析終了フレーム以降は追跡モード自動終了
+      if (frame > endFrame) {
+        endTrackingMode();
+        return;
+      }
+      // trackingDataのframeを検索
+      let frameData = trackingData.find(d => d.frame === frame);
+      if (!frameData) {
+        frameData = { frame, positions: Array(objectCount).fill(null) };
+        trackingData.push(frameData);
+      }
+      // 物体ごとの座標を記録（符号反転・入れ替えせずそのまま保存）
+      frameData.positions[currentObjectIndex] = { x: phys.x, y: phys.y };
       drawOverlay();
-      video.currentTime += 1 / fps;
-      updateCurrentFrameLabel();
+      updateUndoBtnVisibility();
+      // 次の物体へ
+      currentObjectIndex++;
+      if (currentObjectIndex >= objectCount) {
+        // 全物体分クリック済み→次フレームへ
+        currentObjectIndex = 0;
+        video.currentTime += 1 / fps;
+        updateCurrentFrameLabel();
+        updateUndoBtnVisibility();
+      }
+      // ガイドテキスト更新（色も物体色に）
+      if (trackingMode) {
+        if (Math.round(video.currentTime * fps) > endFrame) {
+          endTrackingMode();
+        } else {
+          updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
+        }
+      }
     } else {
       alert('スケール・原点・スケール長が未設定です');
     }
@@ -365,18 +532,22 @@ window.addEventListener('mouseup', function(e) {
   dragHappened = false;
 });
 
-// drawOverlay: zoomFactorとオフセットを反映
+// drawOverlay: 物体ごとの点描画も保存値そのまま（符号反転・入れ替えなし）
 function drawOverlay() {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(canvas.width / 2 + zoomOffsetX, canvas.height / 2 + zoomOffsetY);
+  ctx.scale(zoomFactor, zoomFactor);
   if (video.videoWidth && video.videoHeight) {
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // 動画を中心に描画
+    ctx.drawImage(video, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
   }
   // スケール点
   ctx.fillStyle = 'blue';
   scalePoints.forEach(pt => {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 5, 0, 2 * Math.PI);
+    ctx.arc(pt.x - canvas.width/2, pt.y - canvas.height/2, 5, 0, 2 * Math.PI);
     ctx.fill();
   });
   // 原点
@@ -384,28 +555,32 @@ function drawOverlay() {
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(originPoint.x, originPoint.y, 9, 0, 2 * Math.PI);
+    ctx.arc(originPoint.x - canvas.width/2, originPoint.y - canvas.height/2, 9, 0, 2 * Math.PI);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(originPoint.x - 12, originPoint.y);
-    ctx.lineTo(originPoint.x + 12, originPoint.y);
-    ctx.moveTo(originPoint.x, originPoint.y - 12);
-    ctx.lineTo(originPoint.x, originPoint.y + 12);
+    ctx.moveTo(originPoint.x - 12 - canvas.width/2, originPoint.y - canvas.height/2);
+    ctx.lineTo(originPoint.x + 12 - canvas.width/2, originPoint.y - canvas.height/2);
+    ctx.moveTo(originPoint.x - canvas.width/2, originPoint.y - 12 - canvas.height/2);
+    ctx.lineTo(originPoint.x - canvas.width/2, originPoint.y + 12 - canvas.height/2);
     ctx.stroke();
   }
-  // 記録点（赤丸）
-  ctx.fillStyle = 'red';
+  // 記録点（物体ごとに色分け）
   trackingData.forEach(d => {
-    const pt = physicalToCanvas(-d.y, -d.x);
-    if (pt) {
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 3, 0, 2 * Math.PI);
-      ctx.fill();
-    }
+    if (!d.positions) return;
+    d.positions.forEach((pos, idx) => {
+      if (!pos) return;
+      const pt = physicalToCanvas(pos.x, pos.y);
+      if (pt) {
+        ctx.fillStyle = objectColors[idx % objectColors.length];
+        ctx.beginPath();
+        ctx.arc(pt.x - canvas.width/2, pt.y - canvas.height/2, 3, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    });
   });
-  
   // 座標軸を描画
   drawCoordinateAxes(ctx, canvas.width, canvas.height);
+  ctx.restore();
 }
 
 // クリック座標もズーム・オフセットを考慮
@@ -560,6 +735,8 @@ video.addEventListener('timeupdate', function() {
   // 終了フレームに到達したら一時停止のみ（巻き戻しやスライダー操作は妨げない）
   if (frame >= endFrame && !video.paused) {
     video.pause();
+    // currentTimeをendFrameに強制セット
+    video.currentTime = endFrame / fps;
   }
 });
 
@@ -583,6 +760,12 @@ video.addEventListener('timeupdate', function() {
   const frame = Math.round(video.currentTime * fps);
   frameSlider.value = frame;
   updateCurrentFrameLabel();
+  // 終了フレームに到達したら一時停止のみ（巻き戻しやスライダー操作は妨げない）
+  if (frame >= endFrame && !video.paused) {
+    video.pause();
+    // currentTimeをendFrameに強制セット
+    video.currentTime = endFrame / fps;
+  }
 });
 
 const exportCsvBtn = document.getElementById('exportCsvBtn');
@@ -591,11 +774,42 @@ exportCsvBtn.onclick = () => {
     alert('記録データがありません');
     return;
   }
-  let csv = 'time(s),x(m),y(m)\n';
-  trackingData.forEach(d => {
+  // ヘッダー生成
+  let header = 'time(s)';
+  for (let i = 0; i < objectCount; i++) {
+    header += `,x${i+1}(m),y${i+1}(m)`;
+  }
+  header += '\n';
+  // データ行生成
+  let csv = header;
+  // スケール線の向きを判定
+  let isHorizontal = false;
+  if (scalePoints.length >= 2) {
+    const [p0, p1] = scalePoints;
+    const dx = p1.x - p0.x;
+    const dy = p1.y - p0.y;
+    isHorizontal = Math.abs(dx) > Math.abs(dy);
+  }
+  // フレーム順にソート
+  const sorted = trackingData.slice().sort((a, b) => a.frame - b.frame);
+  sorted.forEach(d => {
     const t = ((d.frame - startFrame) / fps).toFixed(3);
-    // 物理座標変換と一貫性を保つ（XとYの入れ替えなし）
-    csv += `${t},${d.x.toFixed(3)},${d.y.toFixed(3)}\n`;
+    let row = [t];
+    for (let i = 0; i < objectCount; i++) {
+      const pos = d.positions && d.positions[i];
+      if (pos) {
+        if (isHorizontal) {
+          // 水平スケール線: x=+y, y=+x（どちらも正符号）
+          row.push(pos.y.toFixed(3), pos.x.toFixed(3));
+        } else {
+          // 鉛直スケール線: 通常通り（X:右、Y:上、Yのみ符号反転）
+          row.push(pos.x.toFixed(3), (-pos.y).toFixed(3));
+        }
+      } else {
+        row.push('', '');
+      }
+    }
+    csv += row.join(',') + '\n';
   });
   let fname = prompt('保存するファイル名を入力してください（例: data.csv）', 'tracking_data.csv');
   if (!fname) fname = 'tracking_data.csv';
@@ -611,7 +825,7 @@ exportCsvBtn.onclick = () => {
 };
 
 /**
- * 座標軸を描画（スケール線の回転を反映）
+ * 座標軸を描画（画面基準の水平・鉛直軸で描画）
  * X軸: 緑色、スケール線の垂直方向
  * Y軸: 青色、スケール線の方向
  */
@@ -623,91 +837,74 @@ function drawCoordinateAxes(ctx, cw, ch) {
   const dx = p1.x - p0.x;
   const dy = p1.y - p0.y;
   const pixelDist = Math.sqrt(dx * dx + dy * dy);
-  const theta = Math.atan2(dy, dx); // スケール線の角度
-  let axisLength = Math.min(cw, ch) * 0.25;
-  // Y軸の上端がcanvas外に出る場合は短くする
-  const yAxisEndX = originPoint.x - cw / 2 + axisLength * Math.cos(theta);
-  const yAxisEndY = originPoint.y - ch / 2 + axisLength * Math.sin(theta);
-  const yAxisStartX = originPoint.x - cw / 2 - axisLength * Math.cos(theta);
-  const yAxisStartY = originPoint.y - ch / 2 - axisLength * Math.sin(theta);
-  if (yAxisStartY < -ch / 2 + 10) {
-    const available = (originPoint.y - 10) - 0;
-    axisLength = Math.min(axisLength, available / Math.abs(Math.sin(theta)));
+  // スケール線の角度（水平/垂直からのずれ）
+  // 座標変換と同じ角度計算を使用
+  let theta;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // ほぼ水平の場合（微小角度補正を保持）
+    if (dx > 0) {
+      // 左→右の場合
+      theta = Math.atan2(dy, dx); // 微小角度補正
+    } else {
+      // 右→左の場合
+      theta = Math.atan2(dy, dx) + Math.PI; // 微小角度補正 + 180度
+    }
+  } else {
+    // ほぼ鉛直の場合
+    theta = Math.atan2(dx, -dy); // dx, -dyで鉛直基準
+    if (dy > 0) theta += Math.PI;
   }
-  // Y軸（スケール線の方向）
-  ctx.strokeStyle = '#00f';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(originPoint.x - cw / 2 - axisLength * Math.cos(theta), originPoint.y - ch / 2 - axisLength * Math.sin(theta));
-  ctx.lineTo(originPoint.x - cw / 2 + axisLength * Math.cos(theta), originPoint.y - ch / 2 + axisLength * Math.sin(theta));
-  ctx.stroke();
-  // Y軸矢印
-  const arrowYx = originPoint.x - cw / 2 - axisLength * Math.cos(theta);
-  const arrowYy = originPoint.y - ch / 2 - axisLength * Math.sin(theta);
-  ctx.save();
-  ctx.translate(arrowYx, arrowYy);
-  ctx.rotate(theta - Math.PI / 2);
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(-6, 15);
-  ctx.moveTo(0, 0);
-  ctx.lineTo(6, 15);
-  ctx.stroke();
-  ctx.restore();
+  let axisLength = Math.min(cw, ch) * 0.25;
+  ctx.translate(originPoint.x - cw / 2, originPoint.y - ch / 2);
+  ctx.rotate(theta);
   // X軸（スケール線の法線方向）
   ctx.strokeStyle = '#0f0';
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(originPoint.x - cw / 2 - axisLength * Math.sin(theta), originPoint.y - ch / 2 + axisLength * Math.cos(theta));
-  ctx.lineTo(originPoint.x - cw / 2 + axisLength * Math.sin(theta), originPoint.y - ch / 2 - axisLength * Math.cos(theta));
+  ctx.moveTo(-axisLength, 0);
+  ctx.lineTo(axisLength, 0);
   ctx.stroke();
-  // X軸矢印
-  const arrowXx = originPoint.x - cw / 2 + axisLength * Math.sin(theta);
-  const arrowXy = originPoint.y - ch / 2 - axisLength * Math.cos(theta);
+  // X軸矢印（右向き）
   ctx.save();
-  ctx.translate(arrowXx, arrowXy);
-  ctx.rotate(theta);
+  ctx.translate(axisLength, 0);
+  ctx.rotate(0);
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(-6, 15);
+  ctx.lineTo(-10, -5);
   ctx.moveTo(0, 0);
-  ctx.lineTo(6, 15);
+  ctx.lineTo(-10, 5);
   ctx.stroke();
   ctx.restore();
-  // 目盛り（Y軸）
+  // Y軸（スケール線の向き）
+  ctx.strokeStyle = '#00f';
+  ctx.beginPath();
+  ctx.moveTo(0, axisLength);
+  ctx.lineTo(0, -axisLength);
+  ctx.stroke();
+  // Y軸矢印（上向き）
+  ctx.save();
+  ctx.translate(0, -axisLength);
+  ctx.rotate(-Math.PI / 2);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-10, -5);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-10, 5);
+  ctx.stroke();
+  ctx.restore();
+  // 目盛り（X軸）
   const scale = scaleLength / pixelDist;
   const tickSpacing = scaleLength / 10;
   const pixelTickSpacing = tickSpacing / scale;
-  ctx.strokeStyle = '#00f';
+  ctx.strokeStyle = '#0f0';
   ctx.lineWidth = 1;
   for (let i = -5; i <= 5; i++) {
     if (i === 0) continue;
-    const tx = originPoint.x - cw / 2 + i * pixelTickSpacing * Math.cos(theta);
-    const ty = originPoint.y - ch / 2 + i * pixelTickSpacing * Math.sin(theta);
+    const tx = i * pixelTickSpacing;
+    const ty = 0;
     ctx.save();
     ctx.translate(tx, ty);
-    ctx.rotate(theta + Math.PI / 2);
-    ctx.beginPath();
-    ctx.moveTo(-5, 0);
-    ctx.lineTo(5, 0);
-    ctx.stroke();
-    ctx.restore();
-    ctx.save();
-    ctx.translate(tx, ty);
-    ctx.fillStyle = '#00f';
-    ctx.font = '8px Arial';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText((-i * tickSpacing).toFixed(1), 8, 0);
-    ctx.restore();
-  }
-  ctx.strokeStyle = '#0f0';
-  for (let i = -5; i <= 5; i++) {
-    if (i === 0) continue;
-    const tx = originPoint.x - cw / 2 + i * pixelTickSpacing * Math.sin(theta);
-    const ty = originPoint.y - ch / 2 - i * pixelTickSpacing * Math.cos(theta);
-    ctx.save();
-    ctx.translate(tx, ty);
-    ctx.rotate(theta);
+    ctx.rotate(0);
     ctx.beginPath();
     ctx.moveTo(0, -5);
     ctx.lineTo(0, 5);
@@ -722,6 +919,29 @@ function drawCoordinateAxes(ctx, cw, ch) {
     ctx.fillText((i * tickSpacing).toFixed(1), 0, -8);
     ctx.restore();
   }
+  // 目盛り（Y軸）
+  ctx.strokeStyle = '#00f';
+  for (let i = -5; i <= 5; i++) {
+    if (i === 0) continue;
+    const tx = 0;
+    const ty = -i * pixelTickSpacing;
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(-Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(-5, 0);
+    ctx.lineTo(5, 0);
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.fillStyle = '#00f';
+    ctx.font = '8px Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((i * tickSpacing).toFixed(1), 8, 0);
+    ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -729,6 +949,39 @@ const resetBtn = document.getElementById('resetBtn');
 resetBtn.onclick = () => {
   if (confirm('本当に最初からやり直しますか？（未保存のデータは失われます）')) {
     window.location.reload();
+  }
+};
+
+// Undoボタンのロジック
+undoBtn.onclick = () => {
+  if (!trackingMode) return;
+  const frame = Math.round(video.currentTime * fps);
+  // 直前の点を消す
+  let frameData = trackingData.find(d => d.frame === frame);
+  if (frameData) {
+    // まだ全物体分打ち終わっていない場合
+    if (currentObjectIndex > 0) {
+      frameData.positions[currentObjectIndex - 1] = null;
+      currentObjectIndex--;
+      drawOverlay();
+      updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
+      return;
+    }
+  }
+  // すでに全物体分打ち終わっている場合 or このフレームのデータがない場合
+  // 1フレーム戻る相当のundo
+  if (frame > startFrame) {
+    video.currentTime = (frame - 1) / fps;
+    // そのフレームのデータも消す
+    const prevFrame = frame - 1;
+    const idx = trackingData.findIndex(d => d.frame === prevFrame);
+    if (idx !== -1) {
+      trackingData.splice(idx, 1);
+      drawOverlay();
+    }
+    // 物体1から再入力
+    currentObjectIndex = 0;
+    updateGuideText(`物体1の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
   }
 };
 

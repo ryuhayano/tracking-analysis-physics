@@ -16,8 +16,13 @@
     <div class="button-group">
       <button id="setOriginBtn">原点設定</button>
       <button id="setScaleBtn">スケール設定</button>
-      <button id="manualTrackBtn">手動追跡モード</button>
-      <button id="multiObjectBtn">複数物体</button>
+      <label for="objectCountSelect" style="margin-right:4px;">物体数</label>
+      <select id="objectCountSelect" style="margin-right:8px; width:60px;">
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+      </select>
+      <button id="startTrackingBtn">追跡開始</button>
+      <button id="undoBtn" style="display:none;">Undo</button>
       <button id="exportCsvBtn">CSV出力</button>
       <button id="resetBtn">やり直し</button>
     </div>
