@@ -28,11 +28,19 @@ const objectColors = ['magenta', 'orange', 'cyan', 'lime', 'purple', 'brown'];
 
 // --- 物体数・追跡開始ボタン ---
 const objectCountSelect = document.getElementById('objectCountSelect');
+const frameIntervalSelect = document.getElementById('frameIntervalSelect');
 const startTrackingBtn = document.getElementById('startTrackingBtn');
 let objectCount = 1;
+let frameInterval = 1;
 objectCountSelect.addEventListener('change', () => {
   objectCount = parseInt(objectCountSelect.value) || 1;
 });
+if (frameIntervalSelect) {
+  frameIntervalSelect.addEventListener('change', () => {
+    frameInterval = parseInt(frameIntervalSelect.value) || 1;
+  });
+  frameInterval = parseInt(frameIntervalSelect.value) || 1;
+}
 objectCount = parseInt(objectCountSelect.value) || 1;
 
 // Undoボタンの表示制御
@@ -133,6 +141,7 @@ function endTrackingMode() {
   updateGuideText('');
   startTrackingBtn.style.background = '';
   objectCountSelect.disabled = false;
+  if (frameIntervalSelect) frameIntervalSelect.disabled = false;
   updateUndoBtnVisibility();
 }
 
@@ -145,9 +154,11 @@ startTrackingBtn.onclick = () => {
   trackingMode = !trackingMode;
   if (trackingMode) {
     currentObjectIndex = 0;
-    updateGuideText(`物体${objectCount === 1 ? '' : '1'}の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
+    const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+    updateGuideText(`物体${objectCount === 1 ? '' : '1'}の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[0]);
     startTrackingBtn.style.background = '#ffd';
     objectCountSelect.disabled = true;
+    if (frameIntervalSelect) frameIntervalSelect.disabled = true;
   } else {
     endTrackingMode();
   }
@@ -500,9 +511,9 @@ canvas.addEventListener('mouseup', function(e) {
       // 次の物体へ
       currentObjectIndex++;
       if (currentObjectIndex >= objectCount) {
-        // 全物体分クリック済み→次フレームへ
+        // 全物体分クリック済み→Nフレーム進む
         currentObjectIndex = 0;
-        video.currentTime += 1 / fps;
+        video.currentTime += frameInterval / fps;
         updateCurrentFrameLabel();
         updateUndoBtnVisibility();
       }
@@ -511,7 +522,8 @@ canvas.addEventListener('mouseup', function(e) {
         if (Math.round(video.currentTime * fps) > endFrame) {
           endTrackingMode();
         } else {
-          updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
+          const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+          updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
         }
       }
     } else {
@@ -964,16 +976,17 @@ undoBtn.onclick = () => {
       frameData.positions[currentObjectIndex - 1] = null;
       currentObjectIndex--;
       drawOverlay();
-      updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
+      const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+      updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
       return;
     }
   }
   // すでに全物体分打ち終わっている場合 or このフレームのデータがない場合
-  // 1フレーム戻る相当のundo
+  // frameIntervalフレーム戻る相当のundo
   if (frame > startFrame) {
-    video.currentTime = (frame - 1) / fps;
+    const prevFrame = Math.max(startFrame, frame - frameInterval);
+    video.currentTime = prevFrame / fps;
     // そのフレームのデータも消す
-    const prevFrame = frame - 1;
     const idx = trackingData.findIndex(d => d.frame === prevFrame);
     if (idx !== -1) {
       trackingData.splice(idx, 1);
@@ -981,7 +994,8 @@ undoBtn.onclick = () => {
     }
     // 物体1から再入力
     currentObjectIndex = 0;
-    updateGuideText(`物体1の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
+    const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+    updateGuideText(`物体1の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[0]);
   }
 };
 
