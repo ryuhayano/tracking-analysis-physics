@@ -9,11 +9,17 @@
 <body>
   <div class="control-panel">
     <span class="app-title"><img src="logo.png" class="app-logo" alt="Logo"> Tracking Analysis for Physics</span>
-    <div class="file-input-row">
+    <div class="file-input-row" style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
       <input type="file" id="videoInput" accept="video/*">
-      <span id="fileName"></span>
+      <button id="loadSampleVideo" type="button" style="padding:2px 10px; font-size:0.98em;">サンプル動画を読み込む</button>
+      <span style="flex:1"></span>
+      <a href="USAGE_GUIDE.html" target="_blank" 
+         style="display:inline-flex; align-items:center; gap:4px; font-size:1.08em; font-weight:bold; color:#fff; background:#2277cc; border-radius:5px; padding:4px 16px; box-shadow:0 1px 4px #0002; border:2px solid #2277cc; text-decoration:none; transition:background 0.2s; white-space:nowrap;"
+         onmouseover="this.style.background='#115599'" onmouseout="this.style.background='#2277cc'">
+        <span style="font-size:1.2em;">❓</span> 使い方ガイド
+      </a>
     </div>
-    <div class="button-group">
+    <div class="button-group" style="margin-bottom:4px; gap:4px;">
       <button id="setOriginBtn">原点設定</button>
       <button id="setScaleBtn">スケール設定</button>
       <label for="objectCountSelect" style="margin-right:4px;">物体数</label>
@@ -25,40 +31,26 @@
       <select id="frameIntervalSelect" style="margin-right:8px; width:60px;">
         <option value="1" selected>1</option>
         <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
         <option value="5">5</option>
-        <option value="6">6</option>
-        <option value="7">7</option>
-        <option value="8">8</option>
-        <option value="9">9</option>
         <option value="10">10</option>
-        <option value="11">11</option>
-        <option value="12">12</option>
-        <option value="13">13</option>
-        <option value="14">14</option>
-        <option value="15">15</option>
-        <option value="16">16</option>
-        <option value="17">17</option>
-        <option value="18">18</option>
-        <option value="19">19</option>
         <option value="20">20</option>
+        <option value="50">50</option>
       </select>
       <button id="startTrackingBtn">追跡開始</button>
       <button id="undoBtn" style="display:none;">Undo</button>
       <button id="exportCsvBtn">CSV出力</button>
       <button id="resetBtn">やり直し</button>
     </div>
-    <div class="video-controls">
+    <div class="video-controls" style="margin-bottom:4px; gap:4px;">
       <button id="playBtn">▶再生</button>
       <button id="pauseBtn">■停止</button>
       <button id="prevFrameBtn">⏪1フレーム戻る</button>
       <button id="nextFrameBtn">⏩1フレーム進む</button>
     </div>
-    <div class="frame-settings">
-      <label>フレームレート(fps): <input type="number" id="fpsInput" min="1" max="1000" step="1" style="width:60px;"></label>
-      <label>解析開始: <input type="number" id="startFrameInput" min="0" step="1" style="width:60px;"></label>
-      <label>解析終了: <input type="number" id="endFrameInput" min="0" step="1" style="width:60px;"></label>
+    <div class="frame-settings" style="margin-bottom:4px; gap:4px;">
+      <label>フレームレート(fps): <input type="text" id="fpsInput" min="1" max="1000" step="1" value="30" style="width:60px;"></label>
+      <label>解析開始: <input type="text" id="startFrameInput" min="0" step="1" style="width:60px;"></label>
+      <label>解析終了: <input type="text" id="endFrameInput" min="0" step="1" style="width:60px;"></label>
       <span id="currentFrameLabel">現在フレーム: 0</span>
     </div>
   </div>
@@ -74,6 +66,14 @@
     <input type="range" id="frameSlider" min="0" max="100" value="0" step="1" style="width:90%; margin: 12px auto 0 auto; display:block;">
   </div>
   <script src="main.js"></script>
+  <script>
+document.getElementById('loadSampleVideo').onclick = function() {
+  const video = document.getElementById('video');
+  video.src = '5cups.mov';
+  video.load();
+  // UIリセットやガイド表示は必要に応じて追加
+};
+</script>
 </body>
 </html>
 

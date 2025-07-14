@@ -2,14 +2,16 @@
 const videoInput = document.getElementById('videoInput');
 const video = document.getElementById('video');
 const canvas = document.getElementById('videoCanvas');
-const fileNameSpan = document.getElementById('fileName');
+// const fileNameSpan = document.getElementById('fileName'); // 不要なので削除
 
 let scaleLength = null; // スケールの実長（m）
 
 const MAX_CANVAS_WIDTH = 660;
 const MAX_CANVAS_HEIGHT = 480;
 
-let fps = 30;
+let fps = 30; // CSV出力時のみ使用
+let videoFps = 30; // 動画制御用（固定値、UIからは変更不可、デフォルト30）
+let currentFrame = 0; // 現在のフレーム番号（直接管理）
 let startFrame = 0;
 let endFrame = 0;
 let totalFrames = 0;
@@ -18,6 +20,8 @@ const fpsInput = document.getElementById('fpsInput');
 const startFrameInput = document.getElementById('startFrameInput');
 const endFrameInput = document.getElementById('endFrameInput');
 const currentFrameLabel = document.getElementById('currentFrameLabel');
+
+const videoFpsInput = document.getElementById('videoFpsInput');
 
 let trackingMode = false;
 let trackingData = []; // [{frame, positions: [{x, y}, ...]}]
@@ -35,12 +39,10 @@ let frameInterval = 1;
 objectCountSelect.addEventListener('change', () => {
   objectCount = parseInt(objectCountSelect.value) || 1;
 });
-if (frameIntervalSelect) {
-  frameIntervalSelect.addEventListener('change', () => {
-    frameInterval = parseInt(frameIntervalSelect.value) || 1;
-  });
+frameIntervalSelect.addEventListener('change', () => {
   frameInterval = parseInt(frameIntervalSelect.value) || 1;
-}
+});
+frameInterval = parseInt(frameIntervalSelect.value) || 1;
 objectCount = parseInt(objectCountSelect.value) || 1;
 
 // Undoボタンの表示制御
@@ -204,7 +206,18 @@ function resizeCanvasToFit() {
     // スライダー分の高さを再考慮
     if (h + sliderHeight + 16 > availableHeight) {
       h = availableHeight - sliderHeight - 16;
-      w = h * aspect;
+      h = Math.max(MIN_CANVAS_HEIGHT, h);
+      w = h * (video.videoWidth / video.videoHeight);
+      w = Math.max(MIN_CANVAS_WIDTH, w);
+      canvas.width = Math.floor(w);
+      canvas.height = Math.floor(h);
+      // .video-containerの幅を取得
+      const container = document.querySelector('.video-container');
+      const containerWidth = container ? container.clientWidth : window.innerWidth;
+      const sliderMargin = 48;
+      const sliderWidth = Math.max(100, Math.min(600, containerWidth - sliderMargin));
+      slider.style.width = sliderWidth + 'px';
+      slider.style.margin = '12px auto 0 auto'; // 中央寄せを強制
     }
   }
 
@@ -258,7 +271,7 @@ videoInput.addEventListener('change', function() {
     const url = URL.createObjectURL(file);
     video.src = url;
     video.controls = false;
-    fileNameSpan.textContent = file.name;
+    // fileNameSpan.textContent = file.name; // 不要なので削除
     
     // 動画の読み込みが完了したらリサイズを実行
     video.addEventListener('loadeddata', function() {
@@ -275,33 +288,28 @@ document.getElementById('pauseBtn').onclick = () => video.pause();
 
 document.getElementById('nextFrameBtn').onclick = () => {
   video.pause();
-  let frame = Math.round(video.currentTime * fps);
-  if (frame < endFrame) {
-    video.currentTime = (frame + 1) / fps;
+  if (currentFrame < endFrame) {
+    currentFrame++;
+    video.currentTime = currentFrame / videoFps;
     updateCurrentFrameLabel();
   }
 };
 
 // 1フレーム戻るボタンの拡張
 const prevFrameBtn = document.getElementById('prevFrameBtn');
-const origPrevFrameOnClick = prevFrameBtn.onclick;
 prevFrameBtn.onclick = () => {
   if (trackingMode) {
-    // trackingDataからこのフレームのデータを消す
-    const frame = Math.round(video.currentTime * fps);
-    const idx = trackingData.findIndex(d => d.frame === frame);
+    const idx = trackingData.findIndex(d => d.frame === currentFrame);
     if (idx !== -1) {
       trackingData.splice(idx, 1);
       drawOverlay();
     }
-    // 物体1から再入力
     currentObjectIndex = 0;
     updateGuideText(`物体1の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
   }
-  // 通常の1フレーム戻る動作
-  let frame = Math.round(video.currentTime * fps);
-  if (frame > startFrame) {
-    video.currentTime = (frame - 1) / fps;
+  if (currentFrame > startFrame) {
+    currentFrame--;
+    video.currentTime = currentFrame / videoFps;
     updateCurrentFrameLabel();
   }
 };
@@ -310,7 +318,6 @@ prevFrameBtn.onclick = () => {
 let mode = null; // 'set-scale' | 'set-origin' | null
 let scalePoints = [];
 let originPoint = null;
-let guideText = '';
 
 // スケール設定ボタン
 const setScaleBtn = document.getElementById('setScaleBtn');
@@ -382,10 +389,10 @@ video.addEventListener('loadedmetadata', function() {
   setTimeout(() => {
     resizeCanvasToFit();
   }, 100);
-  
-  fps = 30;
-  fpsInput.value = fps;
-  totalFrames = Math.floor(video.duration * fps);
+  // 動画制御用fpsは固定値（30）
+  videoFps = 30;
+  totalFrames = Math.floor(video.duration * videoFps);
+  currentFrame = 0;
   startFrame = 0;
   endFrame = totalFrames - 1;
   startFrameInput.value = startFrame;
@@ -420,7 +427,6 @@ let dragHappened = false;
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
-console.log('zoomInBtn:', zoomInBtn, 'zoomOutBtn:', zoomOutBtn, 'zoomResetBtn:', zoomResetBtn);
 const zoomLevelLabel = document.getElementById('zoomLevelLabel');
 
 function updateZoomLabel() {
@@ -428,7 +434,6 @@ function updateZoomLabel() {
 }
 
 zoomInBtn.onclick = () => {
-  console.log('zoom in clicked');
   zoomFactor = Math.min(zoomFactor * 1.25, 10);
   updateZoomLabel();
   drawOverlay();
@@ -491,35 +496,29 @@ canvas.addEventListener('mouseup', function(e) {
   if (trackingMode && !dragHappened && dist < 5) {
     const { x, y } = getCanvasCoords(e);
     const phys = getPhysicalCoords(x, y);
-    const frame = Math.round(video.currentTime * fps);
     if (phys) {
-      // 解析終了フレーム以降は追跡モード自動終了
-      if (frame > endFrame) {
+      if (currentFrame > endFrame) {
         endTrackingMode();
         return;
       }
-      // trackingDataのframeを検索
-      let frameData = trackingData.find(d => d.frame === frame);
+      let frameData = trackingData.find(d => d.frame === currentFrame);
       if (!frameData) {
-        frameData = { frame, positions: Array(objectCount).fill(null) };
+        frameData = { frame: currentFrame, positions: Array(objectCount).fill(null) };
         trackingData.push(frameData);
       }
-      // 物体ごとの座標を記録（符号反転・入れ替えせずそのまま保存）
       frameData.positions[currentObjectIndex] = { x: phys.x, y: phys.y };
       drawOverlay();
       updateUndoBtnVisibility();
-      // 次の物体へ
       currentObjectIndex++;
       if (currentObjectIndex >= objectCount) {
-        // 全物体分クリック済み→Nフレーム進む
         currentObjectIndex = 0;
-        video.currentTime += frameInterval / fps;
+        currentFrame += frameInterval;
+        video.currentTime = currentFrame / videoFps;
         updateCurrentFrameLabel();
         updateUndoBtnVisibility();
       }
-      // ガイドテキスト更新（色も物体色に）
       if (trackingMode) {
-        if (Math.round(video.currentTime * fps) > endFrame) {
+        if (currentFrame > endFrame) {
           endTrackingMode();
         } else {
           const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
@@ -660,16 +659,11 @@ canvas.addEventListener('click', function(e) {
     return;
   }
 
-  // デバッグ: 物理座標変換
+  // 物理座標変換（デバッグ用）
   const phys = getPhysicalCoords(x, y);
   if (phys) {
-    console.log('物理座標:', phys);
-    // 逆変換で位置を確認
+    // 逆変換で位置を確認（必要に応じてデバッグ出力を有効化）
     const backToCanvas = physicalToCanvas(phys.x, phys.y);
-    console.log('逆変換確認:', {original: {x, y}, backToCanvas, diff: {
-      x: Math.abs(x - backToCanvas.x),
-      y: Math.abs(y - backToCanvas.y)
-    }});
   }
 });
 
@@ -710,73 +704,131 @@ video.addEventListener('loadeddata', function() {
 // video要素は常に非表示
 video.style.display = 'none';
 
-// fps入力欄の変更を反映
-fpsInput.addEventListener('change', function() {
-  fps = parseInt(fpsInput.value) || 30;
-  totalFrames = Math.floor(video.duration * fps);
-  // 解析範囲も再設定
-  endFrame = totalFrames - 1;
-  endFrameInput.value = endFrame;
-  updateCurrentFrameLabel();
+// 全角数字を半角に変換する関数
+function toHalfWidth(str) {
+  return str.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+}
+// 数字入力欄を正規化（全角→半角、半角数字以外除去）
+function normalizeNumberInput(input) {
+  let before = input.value;
+  let val = toHalfWidth(before);
+  // 数字以外が含まれていたらエラー表示
+  if (/[^0-9]/.test(val)) {
+    input.style.border = '2px solid red';
+    input.title = '半角数字のみ入力してください（全角数字は自動変換されます）';
+  } else {
+    input.style.border = '';
+    input.title = '';
+  }
+  val = val.replace(/[^0-9]/g, '');
+  // 変換前と変換後が異なる場合のみ再代入
+  if (before !== val) {
+    input.value = val;
+  }
+}
+let isComposingFps = false;
+let isComposingStart = false;
+let isComposingEnd = false;
+
+fpsInput.addEventListener('compositionstart', () => { isComposingFps = true; });
+fpsInput.addEventListener('compositionend', () => {
+  isComposingFps = false;
+  normalizeNumberInput(fpsInput);
+});
+fpsInput.addEventListener('input', function() {
+  if (!isComposingFps) normalizeNumberInput(fpsInput);
+});
+
+startFrameInput.addEventListener('compositionstart', () => { isComposingStart = true; });
+startFrameInput.addEventListener('compositionend', () => {
+  isComposingStart = false;
+  normalizeNumberInput(startFrameInput);
+});
+startFrameInput.addEventListener('input', function() {
+  if (!isComposingStart) normalizeNumberInput(startFrameInput);
+});
+
+endFrameInput.addEventListener('compositionstart', () => { isComposingEnd = true; });
+endFrameInput.addEventListener('compositionend', () => {
+  isComposingEnd = false;
+  normalizeNumberInput(endFrameInput);
+});
+endFrameInput.addEventListener('input', function() {
+  if (!isComposingEnd) normalizeNumberInput(endFrameInput);
 });
 
 // 解析開始・終了フレーム入力欄の変更を反映
+startFrameInput.addEventListener('input', function() {
+  normalizeNumberInput(startFrameInput);
+});
 startFrameInput.addEventListener('change', function() {
   startFrame = parseInt(startFrameInput.value) || 0;
   frameSlider.min = startFrame;
+  // 範囲外なら近い方にcurrentFrameを移動
+  let moved = false;
+  if (currentFrame < startFrame || currentFrame > endFrame) {
+    if (Math.abs(currentFrame - startFrame) <= Math.abs(currentFrame - endFrame)) {
+      currentFrame = startFrame;
+    } else {
+      currentFrame = endFrame;
+    }
+    frameSlider.value = currentFrame;
+    moved = true;
+  }
+  if (moved) {
+    video.currentTime = currentFrame / videoFps;
+  }
   updateCurrentFrameLabel();
+});
+endFrameInput.addEventListener('input', function() {
+  normalizeNumberInput(endFrameInput);
 });
 endFrameInput.addEventListener('change', function() {
   endFrame = parseInt(endFrameInput.value) || (totalFrames - 1);
   frameSlider.max = endFrame;
+  // 範囲外なら近い方にcurrentFrameを移動
+  let moved = false;
+  if (currentFrame < startFrame || currentFrame > endFrame) {
+    if (Math.abs(currentFrame - startFrame) <= Math.abs(currentFrame - endFrame)) {
+      currentFrame = startFrame;
+    } else {
+      currentFrame = endFrame;
+    }
+    frameSlider.value = currentFrame;
+    moved = true;
+  }
+  if (moved) {
+    video.currentTime = currentFrame / videoFps;
+  }
   updateCurrentFrameLabel();
 });
 
 // 現在のフレーム番号を表示
 function updateCurrentFrameLabel() {
-  const frame = Math.round(video.currentTime * fps);
-  currentFrameLabel.textContent = `現在フレーム: ${frame}`;
+  currentFrameLabel.textContent = `現在フレーム: ${currentFrame}`;
 }
-
-// フレーム送り/戻し時や動画シーク時に現在フレーム表示を更新
-video.addEventListener('seeked', updateCurrentFrameLabel);
-video.addEventListener('timeupdate', function() {
-  const frame = Math.round(video.currentTime * fps);
-  frameSlider.value = frame;
-  updateCurrentFrameLabel();
-  // 終了フレームに到達したら一時停止のみ（巻き戻しやスライダー操作は妨げない）
-  if (frame >= endFrame && !video.paused) {
-    video.pause();
-    // currentTimeをendFrameに強制セット
-    video.currentTime = endFrame / fps;
-  }
-});
 
 // スライダーと動画の同期
 const frameSlider = document.getElementById('frameSlider');
 
 // スライダー操作で動画のcurrentTimeを変更
 frameSlider.addEventListener('input', function() {
-  const frame = parseInt(frameSlider.value) || 0;
-  video.currentTime = frame / fps;
+  currentFrame = parseInt(frameSlider.value) || 0;
+  video.currentTime = currentFrame / videoFps;
   updateCurrentFrameLabel();
 });
 
 // 動画の再生位置が変わったらスライダーも追従
-video.addEventListener('seeked', function() {
-  const frame = Math.round(video.currentTime * fps);
-  frameSlider.value = frame;
-  updateCurrentFrameLabel();
-});
 video.addEventListener('timeupdate', function() {
-  const frame = Math.round(video.currentTime * fps);
-  frameSlider.value = frame;
+  currentFrame = Math.round(video.currentTime * videoFps);
+  frameSlider.value = currentFrame;
   updateCurrentFrameLabel();
   // 終了フレームに到達したら一時停止のみ（巻き戻しやスライダー操作は妨げない）
-  if (frame >= endFrame && !video.paused) {
+  if (currentFrame >= endFrame && !video.paused) {
     video.pause();
     // currentTimeをendFrameに強制セット
-    video.currentTime = endFrame / fps;
+    video.currentTime = endFrame / videoFps;
+    currentFrame = endFrame;
   }
 });
 
@@ -786,6 +838,8 @@ exportCsvBtn.onclick = () => {
     alert('記録データがありません');
     return;
   }
+  // ユーザー入力のfpsを取得
+  const fps = parseFloat(fpsInput.value) || 30;
   // ヘッダー生成
   let header = 'time(s)';
   for (let i = 0; i < objectCount; i++) {
@@ -811,10 +865,8 @@ exportCsvBtn.onclick = () => {
       const pos = d.positions && d.positions[i];
       if (pos) {
         if (isHorizontal) {
-          // 水平スケール線: x=+y, y=+x（どちらも正符号）
           row.push(pos.y.toFixed(3), pos.x.toFixed(3));
         } else {
-          // 鉛直スケール線: 通常通り（X:右、Y:上、Yのみ符号反転）
           row.push(pos.x.toFixed(3), (-pos.y).toFixed(3));
         }
       } else {
@@ -967,11 +1019,8 @@ resetBtn.onclick = () => {
 // Undoボタンのロジック
 undoBtn.onclick = () => {
   if (!trackingMode) return;
-  const frame = Math.round(video.currentTime * fps);
-  // 直前の点を消す
-  let frameData = trackingData.find(d => d.frame === frame);
+  let frameData = trackingData.find(d => d.frame === currentFrame);
   if (frameData) {
-    // まだ全物体分打ち終わっていない場合
     if (currentObjectIndex > 0) {
       frameData.positions[currentObjectIndex - 1] = null;
       currentObjectIndex--;
@@ -981,18 +1030,15 @@ undoBtn.onclick = () => {
       return;
     }
   }
-  // すでに全物体分打ち終わっている場合 or このフレームのデータがない場合
-  // frameIntervalフレーム戻る相当のundo
-  if (frame > startFrame) {
-    const prevFrame = Math.max(startFrame, frame - frameInterval);
-    video.currentTime = prevFrame / fps;
-    // そのフレームのデータも消す
+  if (currentFrame > startFrame) {
+    const prevFrame = Math.max(startFrame, currentFrame - frameInterval);
+    currentFrame = prevFrame;
+    video.currentTime = prevFrame / videoFps;
     const idx = trackingData.findIndex(d => d.frame === prevFrame);
     if (idx !== -1) {
       trackingData.splice(idx, 1);
       drawOverlay();
     }
-    // 物体1から再入力
     currentObjectIndex = 0;
     const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
     updateGuideText(`物体1の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[0]);
