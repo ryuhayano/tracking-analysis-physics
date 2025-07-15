@@ -16,6 +16,7 @@
 - 記録データのCSV出力（秒単位、ヘッダー付き、小数点以下3桁、画面表示と一致）
 - UIは日本語対応、全角数字も自動変換、数字以外はエラー表示
 - ウィンドウリサイズや縦長動画にも対応
+- - iPad Sidecar（外部ディスプレイ）やMacのウィンドウリサイズ時も、UI・動画表示が最適化されるレスポンシブデザイン
 - サンプル動画・操作例付きの使い方ガイド（USAGE_GUIDE.html）を同梱
 
 ---
@@ -44,6 +45,7 @@
 - すべてのファイル（index.html, main.js, style.css, 5cups.mov, USAGE_GUIDE.html, 画像類）を同じフォルダにまとめて配布
 - index.htmlをブラウザ（Chrome, Edge, Firefox, Safari, Chrome OS等）で開くだけで動作
 - GitHub Pages等でWeb公開も可能
+- - iPadのSidecar機能や、MacのSafari/Chrome等でウィンドウサイズを変更した場合も、UI・動画表示が崩れにくい設計
 
 ---
 
@@ -58,5 +60,6 @@
 ■ バージョン履歴
 - 2024年7月：複数物体手動追跡・Undo/UI・フレーム間隔機能版 完成
 - 2025年7月14日：サンプル動画・画像付きガイド・UI/UX改善・Chromeブック等教育現場対応など大幅アップデート
+- 2025年7月: iPad SidecarやMacのウィンドウリサイズ時のレスポンシブUI最適化
 
 ---
