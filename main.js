@@ -130,6 +130,28 @@ function updateUndoBtnVisibility() {
 
 // ショートカットキー対応
 window.addEventListener('keydown', function(e) {
+  // ESCキーで設定をキャンセル
+  if (e.key === 'Escape' && (mode === 'set-scale' || mode === 'set-origin')) {
+    e.preventDefault();
+    // 設定をリセット
+    mode = null;
+    scalePoints = [];
+    updateGuideText('');
+    disableVideoControls(false);
+    // ボタンのハイライトを解除
+    setScaleBtn.style.background = '';
+    setOriginBtn.style.background = '';
+    // キャンセルボタンと案内を削除
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) cancelBtn.remove();
+    const cancelHint = document.getElementById('cancelHint');
+    if (cancelHint) cancelHint.remove();
+    // 画面を再描画して始点・終点・直線を消去
+    drawOverlay();
+    return;
+  }
+  
+  // トラッキングモード中のUndo
   if (!trackingMode) return;
   if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') {
     e.preventDefault();
@@ -322,18 +344,140 @@ let originPoint = null;
 // スケール設定ボタン
 const setScaleBtn = document.getElementById('setScaleBtn');
 setScaleBtn.onclick = () => {
-  mode = 'set-scale';
-  scalePoints = [];
-  updateGuideText('スケール設定: 始点と終点をクリックしてください');
-  disableVideoControls(true);
+  if (mode === 'set-scale') {
+    // 既に設定中の場合はキャンセル
+    mode = null;
+    scalePoints = [];
+    updateGuideText('');
+    disableVideoControls(false);
+    // ボタンのハイライトを解除
+    setScaleBtn.style.background = '';
+    // キャンセルボタンと案内を削除
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) cancelBtn.remove();
+    const cancelHint = document.getElementById('cancelHint');
+    if (cancelHint) cancelHint.remove();
+    // 画面を再描画して始点・終点・直線を消去
+    drawOverlay();
+  } else {
+    // 新規設定開始
+    mode = 'set-scale';
+    scalePoints = [];
+    updateGuideText('スケール設定: 始点と終点をクリックしてください');
+    disableVideoControls(true);
+    // ボタンをハイライト表示
+    setScaleBtn.style.background = '#ffd';
+    // キャンセルボタンをガイドテキストに追加
+    if (!document.getElementById('cancelBtn')) {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.id = 'cancelBtn';
+      cancelBtn.textContent = 'キャンセル';
+      cancelBtn.style.marginLeft = '8px';
+      cancelBtn.style.fontSize = '0.95em';
+      cancelBtn.style.background = '#f9f9f9';
+      cancelBtn.style.border = '1px solid #aaa';
+      cancelBtn.style.color = '#c00';
+      cancelBtn.style.fontWeight = 'normal';
+      cancelBtn.style.borderRadius = '4px';
+      cancelBtn.style.padding = '1px 8px';
+      cancelBtn.style.cursor = 'pointer';
+      cancelBtn.onclick = () => {
+        // キャンセル処理
+        mode = null;
+        scalePoints = [];
+        updateGuideText('');
+        disableVideoControls(false);
+        // ボタンのハイライトを解除
+        setScaleBtn.style.background = '';
+        // キャンセルボタンと案内を削除
+        const cancelBtn = document.getElementById('cancelBtn');
+        if (cancelBtn) cancelBtn.remove();
+        const cancelHint = document.getElementById('cancelHint');
+        if (cancelHint) cancelHint.remove();
+        // 画面を再描画
+        drawOverlay();
+      };
+      guideDiv.appendChild(cancelBtn);
+    }
+    // ガイドテキストにキャンセル案内を追加
+    if (!document.getElementById('cancelHint')) {
+      const hint = document.createElement('span');
+      hint.id = 'cancelHint';
+      hint.textContent = '（ESCキーでもキャンセル）';
+      hint.style.marginLeft = '8px';
+      hint.style.fontSize = '0.92em';
+      hint.style.color = '#888';
+      guideDiv.appendChild(hint);
+    }
+  }
 };
 
 // 原点設定ボタン
 const setOriginBtn = document.getElementById('setOriginBtn');
 setOriginBtn.onclick = () => {
-  mode = 'set-origin';
-  updateGuideText('原点設定: 原点となる点をクリックしてください');
-  disableVideoControls(true);
+  if (mode === 'set-origin') {
+    // 既に設定中の場合はキャンセル
+    mode = null;
+    updateGuideText('');
+    disableVideoControls(false);
+    // ボタンのハイライトを解除
+    setOriginBtn.style.background = '';
+    // キャンセルボタンと案内を削除
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) cancelBtn.remove();
+    const cancelHint = document.getElementById('cancelHint');
+    if (cancelHint) cancelHint.remove();
+    // 画面を再描画（原点設定の場合は特に消去するものはないが、一貫性のため）
+    drawOverlay();
+  } else {
+    // 新規設定開始
+    mode = 'set-origin';
+    updateGuideText('原点設定: 原点となる点をクリックしてください');
+    disableVideoControls(true);
+    // ボタンをハイライト表示
+    setOriginBtn.style.background = '#ffd';
+    // キャンセルボタンをガイドテキストに追加
+    if (!document.getElementById('cancelBtn')) {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.id = 'cancelBtn';
+      cancelBtn.textContent = 'キャンセル';
+      cancelBtn.style.marginLeft = '8px';
+      cancelBtn.style.fontSize = '0.95em';
+      cancelBtn.style.background = '#f9f9f9';
+      cancelBtn.style.border = '1px solid #aaa';
+      cancelBtn.style.color = '#c00';
+      cancelBtn.style.fontWeight = 'normal';
+      cancelBtn.style.borderRadius = '4px';
+      cancelBtn.style.padding = '1px 8px';
+      cancelBtn.style.cursor = 'pointer';
+      cancelBtn.onclick = () => {
+        // キャンセル処理
+        mode = null;
+        updateGuideText('');
+        disableVideoControls(false);
+        // ボタンのハイライトを解除
+        setOriginBtn.style.background = '';
+        // キャンセルボタンと案内を削除
+        const cancelBtn = document.getElementById('cancelBtn');
+        if (cancelBtn) cancelBtn.remove();
+        const cancelHint = document.getElementById('cancelHint');
+        if (cancelHint) cancelHint.remove();
+        // 画面を再描画
+        drawOverlay();
+      };
+      guideDiv.appendChild(cancelBtn);
+    }
+    // ガイドテキストにキャンセル案内を追加
+    if (!document.getElementById('cancelHint')) {
+      const hint = document.createElement('span');
+      hint.id = 'cancelHint';
+      hint.textContent = '（ESCキーでもキャンセル）';
+      hint.style.marginLeft = '8px';
+      hint.style.fontSize = '0.92em';
+      hint.style.color = '#888';
+      guideDiv.appendChild(hint);
+    }
+  }
 };
 
 // 物理座標変換（画面基準の水平・鉛直軸に固定、スケール線の傾き分だけ補正）
@@ -558,9 +702,48 @@ function drawOverlay() {
   ctx.fillStyle = 'blue';
   scalePoints.forEach(pt => {
     ctx.beginPath();
-    ctx.arc(pt.x - canvas.width/2, pt.y - canvas.height/2, 5, 0, 2 * Math.PI);
+    ctx.arc(pt.x - canvas.width/2, pt.y - canvas.height/2, 3.3, 0, 2 * Math.PI);
     ctx.fill();
   });
+  
+  // スケール線と距離表示
+  if (scalePoints.length >= 2) {
+    const [p0, p1] = scalePoints;
+    // スケール線を描画
+    ctx.strokeStyle = 'blue';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(p0.x - canvas.width/2, p0.y - canvas.height/2);
+    ctx.lineTo(p1.x - canvas.width/2, p1.y - canvas.height/2);
+    ctx.stroke();
+    
+    // 距離を表示（スケール長が設定されている場合のみ）
+    if (scaleLength !== null) {
+      const midX = (p0.x + p1.x) / 2 - canvas.width/2;
+      const midY = (p0.y + p1.y) / 2 - canvas.height/2;
+      
+      ctx.fillStyle = 'blue';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // 背景を白で塗りつぶして文字を見やすくする
+      const text = `${scaleLength} m`;
+      const textMetrics = ctx.measureText(text);
+      const padding = 2;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillRect(
+        midX - textMetrics.width/2 - padding, 
+        midY - 6 - padding, 
+        textMetrics.width + padding * 2, 
+        12 + padding * 2
+      );
+      
+      // 文字を描画
+      ctx.fillStyle = 'blue';
+      ctx.fillText(text, midX, midY);
+    }
+  }
   // 原点
   if (originPoint) {
     ctx.strokeStyle = 'red';
@@ -633,27 +816,58 @@ canvas.addEventListener('click', function(e) {
       drawOverlay(); // まず青マーカーを描画
       if (scalePoints.length === 2) {
         setTimeout(() => {
-          const len = prompt('2点間の実際の長さをメートル単位で入力してください');
-          if (len && !isNaN(len)) {
-            scaleLength = parseFloat(len);
-            drawOverlay(); // スケール設定完了時に座標軸を表示
+          const proceed = confirm('スケール設定を続行しますか？\n\n「OK」: 距離を入力して設定完了\n「キャンセル」: 設定をキャンセル');
+          if (proceed) {
+            // OKが押された場合、距離入力を求める
+            const len = prompt('2点間の実際の長さをメートル単位で入力してください');
+            if (len && !isNaN(len)) {
+              scaleLength = parseFloat(len);
+              drawOverlay(); // スケール設定完了時に座標軸を表示
+            } else if (len !== null) {
+              // 空文字や無効な値の場合
+              alert('有効な数値を入力してください');
+              scaleLength = null;
+                         } else {
+               // キャンセルボタンが押された場合
+               scaleLength = null;
+               scalePoints = [];
+               // 画面を再描画して始点・終点・直線を消去
+               drawOverlay();
+             }
           } else {
+            // キャンセルが押された場合
             scaleLength = null;
-            alert('有効な数値を入力してください');
+            scalePoints = [];
+            // 画面を再描画して始点・終点・直線を消去
+            drawOverlay();
           }
           mode = null;
           updateGuideText('');
           disableVideoControls(false);
-        }, 50); // 描画後にpromptを出す
-      } else {
-        updateGuideText('スケール設定: 2点目（終点）をクリックしてください');
-      }
+          // ボタンのハイライトを解除
+          setScaleBtn.style.background = '';
+          // キャンセルボタンと案内を削除
+          const cancelBtn = document.getElementById('cancelBtn');
+          if (cancelBtn) cancelBtn.remove();
+          const cancelHint = document.getElementById('cancelHint');
+          if (cancelHint) cancelHint.remove();
+        }, 50); // 描画後にconfirmを出す
+              } else {
+          updateGuideText('スケール設定: 2点目（終点）をクリックしてください');
+        }
       return;
     } else if (mode === 'set-origin') {
       originPoint = { x, y };
       mode = null;
       updateGuideText('');
       disableVideoControls(false);
+      // ボタンのハイライトを解除
+      setOriginBtn.style.background = '';
+      // キャンセルボタンと案内を削除
+      const cancelBtn = document.getElementById('cancelBtn');
+      if (cancelBtn) cancelBtn.remove();
+      const cancelHint = document.getElementById('cancelHint');
+      if (cancelHint) cancelHint.remove();
       drawOverlay(); // 原点設定完了時に座標軸を表示
     }
     return;
