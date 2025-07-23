@@ -1,3 +1,10 @@
+/*
+ * Physics Exam Lab - Tracking Analysis Software
+ * Copyright (c) 2025 一般社団法人 国際物理オリンピック2023記念協会
+ * Licensed under the Creative Commons BY-NC 4.0 International License.
+ * See https://creativecommons.org/licenses/by-nc/4.0/
+ */
+
 // ファイル選択時に動画を読み込む
 const videoInput = document.getElementById('videoInput');
 const video = document.getElementById('video');
@@ -361,10 +368,10 @@ setScaleBtn.onclick = () => {
     drawOverlay();
   } else {
     // 新規設定開始
-    mode = 'set-scale';
-    scalePoints = [];
-    updateGuideText('スケール設定: 始点と終点をクリックしてください');
-    disableVideoControls(true);
+  mode = 'set-scale';
+  scalePoints = [];
+  updateGuideText('スケール設定: 始点と終点をクリックしてください');
+  disableVideoControls(true);
     // ボタンをハイライト表示
     setScaleBtn.style.background = '#ffd';
     // キャンセルボタンをガイドテキストに追加
@@ -431,9 +438,9 @@ setOriginBtn.onclick = () => {
     drawOverlay();
   } else {
     // 新規設定開始
-    mode = 'set-origin';
-    updateGuideText('原点設定: 原点となる点をクリックしてください');
-    disableVideoControls(true);
+  mode = 'set-origin';
+  updateGuideText('原点設定: 原点となる点をクリックしてください');
+  disableVideoControls(true);
     // ボタンをハイライト表示
     setOriginBtn.style.background = '#ffd';
     // キャンセルボタンをガイドテキストに追加
@@ -819,17 +826,17 @@ canvas.addEventListener('click', function(e) {
           const proceed = confirm('スケール設定を続行しますか？\n\n「OK」: 距離を入力して設定完了\n「キャンセル」: 設定をキャンセル');
           if (proceed) {
             // OKが押された場合、距離入力を求める
-            const len = prompt('2点間の実際の長さをメートル単位で入力してください');
-            if (len && !isNaN(len)) {
-              scaleLength = parseFloat(len);
-              drawOverlay(); // スケール設定完了時に座標軸を表示
+          const len = prompt('2点間の実際の長さをメートル単位で入力してください');
+          if (len && !isNaN(len)) {
+            scaleLength = parseFloat(len);
+            drawOverlay(); // スケール設定完了時に座標軸を表示
             } else if (len !== null) {
               // 空文字や無効な値の場合
               alert('有効な数値を入力してください');
               scaleLength = null;
-                         } else {
+          } else {
                // キャンセルボタンが押された場合
-               scaleLength = null;
+            scaleLength = null;
                scalePoints = [];
                // 画面を再描画して始点・終点・直線を消去
                drawOverlay();
@@ -852,9 +859,9 @@ canvas.addEventListener('click', function(e) {
           const cancelHint = document.getElementById('cancelHint');
           if (cancelHint) cancelHint.remove();
         }, 50); // 描画後にconfirmを出す
-              } else {
-          updateGuideText('スケール設定: 2点目（終点）をクリックしてください');
-        }
+      } else {
+        updateGuideText('スケール設定: 2点目（終点）をクリックしてください');
+      }
       return;
     } else if (mode === 'set-origin') {
       originPoint = { x, y };

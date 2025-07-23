@@ -1,3 +1,10 @@
+/*
+ * Physics Exam Lab - Tracking Analysis Software
+ * Copyright (c) 2025 一般社団法人 国際物理オリンピック2023記念協会
+ * Licensed under the Creative Commons BY-NC 4.0 International License.
+ * See https://creativecommons.org/licenses/by-nc/4.0/
+ */
+
 html, body {
   height: auto !important;
   min-height: 100%;
@@ -328,6 +335,25 @@ input[type="file"] {
   canvas, video {
     max-width: 95vw !important;
     max-height: 45vh !important;
+  }
+}
+
+/* フッター */
+footer {
+  text-align: center;
+  padding: 10px;
+  margin-top: 20px;
+  font-size: 0.8em;
+  color: #666;
+  border-top: 1px solid #ddd;
+  background: #f9f9f9;
+}
+
+@media (max-width: 900px) {
+  footer {
+    font-size: 0.75em;
+    padding: 8px;
+    margin-top: 15px;
   }
 }
 

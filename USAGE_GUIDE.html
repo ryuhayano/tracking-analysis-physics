@@ -1,3 +1,9 @@
+<!--
+  Physics Exam Lab - Tracking Analysis Software
+  Copyright (c) 2025 一般社団法人 国際物理オリンピック2023記念協会
+  Licensed under the Creative Commons BY-NC 4.0 International License.
+  See https://creativecommons.org/licenses/by-nc/4.0/
+-->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -23,7 +29,7 @@
       下図は実験のイメージです。<br>
       <b>ここでは、サンプル動画（5cups.mov）を「サンプル動画を読み込む」ボタンで読み込み、それを解析する例を示しています。</b>
     </p>
-    <img src="aluminum_cups.png" alt="アルミカップ落下実験イメージ" style="display:block; margin:16px auto 24px auto; max-width:80%; border-radius:6px; box-shadow:0 1px 6px #0002;">
+          <img src="assets/images/aluminum_cups.png" alt="アルミカップ落下実験イメージ" style="display:block; margin:16px auto 24px auto; max-width:80%; border-radius:6px; box-shadow:0 1px 6px #0002;">
     <p>
       実際に例として見せている動画では、カップが5枚重ねてあります（n=5）。
     </p>
@@ -35,28 +41,28 @@
         動画を開いた直後に「フレームレート(fps)」を入力します（この例では120に設定）。<br>
         動画下のスライダーで内容を確認し、必要に応じて「解析開始」「解析終了」のフレーム数も入力してください。
       </p>
-      <img src="tutorial_1.png" alt="動画ファイル選択・初期設定">
+      <img src="assets/images/tutorial_1.png" alt="動画ファイル選択・初期設定">
     </div>
     <div class="step">
       <h2>2. 原点・スケールを設定</h2>
       <p>
         <b>原点設定：</b>「原点設定」ボタンで原点（例：解析開始フレームでの物体の位置）をクリック<br>
-        <img src="tutorial_2.png" alt="原点設定">
+        <img src="assets/images/tutorial_2.png" alt="原点設定">
         <div style="margin-bottom: 1.7em;">
           <b>スケール設定：</b>「スケール設定」ボタンでスケールの始点と終点（例：テープメジャーの0cmと100cm）を順にクリック<br>
           <span style="font-size:0.97em; color:#555;">※0cmと100cmは、この動画に写っているテープメジャーの例です。お手持ちの動画では、写っている物差しや目盛りの任意の2点を選んでください。</span><br>
-          <img src="tutorial_3.png" alt="スケール設定">
+          <img src="assets/images/tutorial_3.png" alt="スケール設定">
         </div>
         <div style="margin-bottom: 1.7em;">
           <b>スケール長さ入力：</b>始点・終点をクリック後、実際の長さ（例：1.0、単位はm）を数値のみ入力します<br>
-          <img src="tutorial_4.png" alt="スケール長さ入力">
+          <img src="assets/images/tutorial_4.png" alt="スケール長さ入力">
         </div>
       </p>
     </div>
     <div class="step">
       <h2>3. 解析条件を設定</h2>
       <p>「フレーム間隔」を入力（例：10）。この例では10フレームごとに追跡します。</p>
-      <img src="tutorial_5.png" alt="フレーム間隔設定例">
+      <img src="assets/images/tutorial_5.png" alt="フレーム間隔設定例">
     </div>
     <div class="step">
       <h2>4. 追跡開始</h2>
@@ -67,12 +73,12 @@
       <div style="background:#f6f6f6; border-left:4px solid #bbb; margin:10px 0 16px 0; padding:8px 16px; font-size:0.97em; color:#555;">
         <b>注記：</b>追跡モード中は「Undo」ボタンやZキー/Backspaceで直前の点を取り消せます。「1フレーム戻る」ボタンでそのフレームの全物体の点を消し、再入力できます。
       </div>
-      <img src="tutorial_6.png" alt="追跡クリック・記録例">
+      <img src="assets/images/tutorial_6.png" alt="追跡クリック・記録例">
     </div>
     <div class="step">
       <h2>5. CSV出力でデータ保存</h2>
       <p>「CSV出力」ボタンで記録データをダウンロードできます</p>
-      <img src="tutorial_7.png" alt="CSV出力">
+      <img src="assets/images/tutorial_7.png" alt="CSV出力">
     </div>
     <ul class="hint">
       <li>フレームレート（fps）、解析開始フレーム、解析終了フレームの各入力欄には数字のみ入力してください。数字以外を入力すると赤枠でエラー表示されます。</li>
@@ -88,8 +94,11 @@
         右図は、5つ重ねたアルミカップの落下実験データをExcelでグラフ化し、データの後半（速度が安定した区間）を直線フィットした例です。<br>
         直線にきれいに乗っており、カップが一定速度で落下していることが分かります。
       </p>
-      <img src="5cups_analysis.png" alt="Excelによるグラフ化・直線フィット例" style="display:block; margin:16px auto 24px auto; max-width:90%; border-radius:6px; box-shadow:0 1px 6px #0002;">
+      <img src="assets/images/5cups_analysis.png" alt="Excelによるグラフ化・直線フィット例" style="display:block; margin:16px auto 24px auto; max-width:90%; border-radius:6px; box-shadow:0 1px 6px #0002;">
     </div>
   </div>
+  <footer style="text-align: center; padding: 15px; margin-top: 30px; font-size: 0.8em; color: #666; border-top: 1px solid #ddd; background: #f9f9f9;">
+    © 2025 一般社団法人 国際物理オリンピック2023記念協会 – CC BY-NC 4.0
+  </footer>
 </body>
 </html> 

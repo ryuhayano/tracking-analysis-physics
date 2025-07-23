@@ -1,3 +1,9 @@
+<!--
+  Physics Exam Lab - Tracking Analysis Software
+  Copyright (c) 2025 一般社団法人 国際物理オリンピック2023記念協会
+  Licensed under the Creative Commons BY-NC 4.0 International License.
+  See https://creativecommons.org/licenses/by-nc/4.0/
+-->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -8,7 +14,7 @@
 </head>
 <body>
   <div class="control-panel">
-    <span class="app-title"><img src="logo.png" class="app-logo" alt="Logo"> Tracking Analysis for Physics</span>
+    <span class="app-title"><img src="assets/images/logo.png" class="app-logo" alt="Logo"> Tracking Analysis for Physics</span>
     <div class="file-input-row" style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
       <input type="file" id="videoInput" accept="video/*">
       <button id="loadSampleVideo" type="button" style="padding:2px 10px; font-size:0.98em;">サンプル動画を読み込む</button>
@@ -69,11 +75,14 @@
   <script>
 document.getElementById('loadSampleVideo').onclick = function() {
   const video = document.getElementById('video');
-  video.src = '5cups.mov';
+  video.src = 'assets/videos/5cups.mov';
   video.load();
   // UIリセットやガイド表示は必要に応じて追加
 };
 </script>
+  <footer>
+    © 2025 一般社団法人 国際物理オリンピック2023記念協会 – CC BY-NC 4.0
+  </footer>
 </body>
 </html>
 
