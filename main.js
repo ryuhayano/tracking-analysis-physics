@@ -197,6 +197,10 @@ startTrackingBtn.onclick = () => {
 };
 
 function resizeCanvasToFit() {
+  // リサイズ前のcanvasサイズを保存
+  const oldCanvasWidth = canvas.width;
+  const oldCanvasHeight = canvas.height;
+  
   const controlPanel = document.querySelector('.control-panel');
   const controlPanelHeight = controlPanel ? controlPanel.offsetHeight : 0;
   const zoomControls = document.querySelector('.zoom-controls');
@@ -285,6 +289,30 @@ function resizeCanvasToFit() {
       slider.style.width = sliderWidth + 'px';
       slider.style.margin = '12px auto 0 auto'; // 中央寄せを強制
     }
+  }
+
+  // 既存の座標点をリサイズ後のcanvasサイズに合わせて変換
+  if (oldCanvasWidth > 0 && oldCanvasHeight > 0 && (oldCanvasWidth !== canvas.width || oldCanvasHeight !== canvas.height)) {
+    const scaleX = canvas.width / oldCanvasWidth;
+    const scaleY = canvas.height / oldCanvasHeight;
+    
+    // スケール点の座標を変換
+    if (scalePoints.length > 0) {
+      scalePoints.forEach(point => {
+        point.x *= scaleX;
+        point.y *= scaleY;
+      });
+    }
+    
+    // 原点の座標を変換
+    if (originPoint) {
+      originPoint.x *= scaleX;
+      originPoint.y *= scaleY;
+    }
+    
+    // ズームオフセットも調整
+    zoomOffsetX *= scaleX;
+    zoomOffsetY *= scaleY;
   }
 
   // ズーム状態はリセットしない
