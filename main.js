@@ -28,7 +28,7 @@ const startFrameInput = document.getElementById('startFrameInput');
 const endFrameInput = document.getElementById('endFrameInput');
 const currentFrameLabel = document.getElementById('currentFrameLabel');
 
-const videoFpsInput = document.getElementById('videoFpsInput');
+// videoFpsInputは使用しないため削除
 
 let trackingMode = false;
 let trackingData = []; // [{frame, positions: [{x, y}, ...]}]
@@ -55,6 +55,66 @@ objectCount = parseInt(objectCountSelect.value) || 1;
 // Undoボタンの表示制御
 const undoBtn = document.getElementById('undoBtn');
 undoBtn.style.display = 'none';
+
+// ピンチ/ズーム案内メッセージを追加
+const zoomHint = document.createElement('div');
+zoomHint.id = 'zoomHint';
+zoomHint.style.display = 'none';
+zoomHint.innerHTML = `
+  <div style="
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 1000;
+    max-width: 200px;
+    line-height: 1.4;
+  ">
+    <strong>💡 動画を拡大するには:</strong><br>
+    • <strong>Ctrl + マウスホイール</strong> (Windows)<br>
+    • <strong>Cmd + マウスホイール</strong> (Mac)<br>
+    • <strong>ピンチ操作</strong> (タッチデバイス)<br>
+    <small style="opacity: 0.8;">※ ブラウザの標準機能です</small>
+  </div>
+`;
+document.body.appendChild(zoomHint);
+
+// ピンチ/ズーム案内ボタンを追加
+const zoomHintBtn = document.createElement('button');
+zoomHintBtn.id = 'zoomHintBtn';
+zoomHintBtn.textContent = '💡 動画拡大方法';
+zoomHintBtn.style.position = 'fixed';
+zoomHintBtn.style.top = '10px';
+zoomHintBtn.style.right = '10px';
+zoomHintBtn.style.zIndex = '1000';
+zoomHintBtn.style.padding = '8px 12px';
+zoomHintBtn.style.background = '#2277cc';
+zoomHintBtn.style.color = 'white';
+zoomHintBtn.style.border = 'none';
+zoomHintBtn.style.borderRadius = '4px';
+zoomHintBtn.style.cursor = 'pointer';
+zoomHintBtn.style.fontSize = '12px';
+document.body.appendChild(zoomHintBtn);
+
+// 案内表示/非表示の切り替え
+zoomHintBtn.onclick = () => {
+  if (zoomHint.style.display === 'none') {
+    zoomHint.style.display = 'block';
+    zoomHintBtn.textContent = '✕ 閉じる';
+    // 10秒後に自動で非表示
+    setTimeout(() => {
+      zoomHint.style.display = 'none';
+      zoomHintBtn.textContent = '💡 動画拡大方法';
+    }, 10000);
+  } else {
+    zoomHint.style.display = 'none';
+    zoomHintBtn.textContent = '💡 動画拡大方法';
+  }
+};
 
 // ガイドテキスト表示用要素を追加
 let guideDiv = document.getElementById('guideText');
@@ -203,8 +263,6 @@ function resizeCanvasToFit() {
   
   const controlPanel = document.querySelector('.control-panel');
   const controlPanelHeight = controlPanel ? controlPanel.offsetHeight : 0;
-  const zoomControls = document.querySelector('.zoom-controls');
-  const zoomControlsHeight = zoomControls ? zoomControls.offsetHeight : 0;
   const slider = document.getElementById('frameSlider');
   const verticalMargin = 64; // 下部余白を大きめに
   const horizontalMargin = 24; // 左右余白
@@ -218,8 +276,8 @@ function resizeCanvasToFit() {
     slider.style.maxWidth = '100vw';
   }
 
-  // 利用可能な領域を計算（全体に8%の余裕を持たせる）
-  let availableHeight = (window.innerHeight - controlPanelHeight - zoomControlsHeight - verticalMargin - containerPadding) * 0.92;
+  // 利用可能な領域を計算（従来通り）
+  let availableHeight = (window.innerHeight - controlPanelHeight - verticalMargin - containerPadding) * 0.92;
   let availableWidth = window.innerWidth - horizontalMargin * 2 - containerPadding;
 
   let w = availableWidth;
@@ -228,13 +286,26 @@ function resizeCanvasToFit() {
 
   if (video.videoWidth && video.videoHeight) {
     const aspect = video.videoWidth / video.videoHeight;
-    // まず高さを仮決定
-    h = Math.min(availableHeight - sliderHeight - 16, availableWidth / aspect);
-    w = h * aspect;
-    // 幅がはみ出す場合は幅優先
-    if (w > availableWidth) {
-      w = availableWidth;
-      h = w / aspect;
+    
+    // 縦長動画の場合の最適化
+    if (aspect < 1.0) { // 縦長動画
+      // 高さを優先して最大限活用
+      h = availableHeight - sliderHeight - 16;
+      w = h * aspect;
+      // 幅がはみ出す場合は幅に合わせて調整
+      if (w > availableWidth) {
+        w = availableWidth;
+        h = w / aspect;
+      }
+    } else { // 横長動画
+      // 従来のロジック
+      h = Math.min(availableHeight - sliderHeight - 16, availableWidth / aspect);
+      w = h * aspect;
+      // 幅がはみ出す場合は幅優先
+      if (w > availableWidth) {
+        w = availableWidth;
+        h = w / aspect;
+      }
     }
     // スライダー分の高さを再考慮
     if (h + sliderHeight + 16 > availableHeight) {
@@ -291,44 +362,52 @@ function resizeCanvasToFit() {
     }
   }
 
-  // 既存の座標点をリサイズ後のcanvasサイズに合わせて変換
-  if (oldCanvasWidth > 0 && oldCanvasHeight > 0 && (oldCanvasWidth !== canvas.width || oldCanvasHeight !== canvas.height)) {
-    const scaleX = canvas.width / oldCanvasWidth;
-    const scaleY = canvas.height / oldCanvasHeight;
-    
-    // スケール点の座標を変換
-    if (scalePoints.length > 0) {
-      scalePoints.forEach(point => {
-        point.x *= scaleX;
-        point.y *= scaleY;
-      });
-    }
-    
-    // 原点の座標を変換
-    if (originPoint) {
-      originPoint.x *= scaleX;
-      originPoint.y *= scaleY;
-    }
-    
-    // ズームオフセットも調整
-    zoomOffsetX *= scaleX;
-    zoomOffsetY *= scaleY;
-  }
+  // 座標変換は削除（ズーム機能が削除されたため不要）
 
   // ズーム状態はリセットしない
   // zoomFactor = 1.0;
   // zoomOffsetX = 0;
   // zoomOffsetY = 0;
+  
+  // キャンバスサイズ変更後に必ず描画を更新
   drawOverlay();
+  
+  // デバッグ用：キャンバスサイズをコンソールに出力
+  // console.log(`Canvas size: ${canvas.width} x ${canvas.height}`);
+  // console.log(`Scale points:`, scalePoints);
+  // console.log(`Origin point:`, originPoint);
 }
 
 videoInput.addEventListener('change', function() {
   const file = this.files[0];
   if (file) {
+    // 新しいファイル読み込み時にリセット処理を実行
+    // 追跡データをクリア
+    trackingData = [];
+    // スケール・原点設定をクリア
+    scalePoints = [];
+    originPoint = null;
+    scaleLength = null;
+    // 追跡モードを終了
+    if (trackingMode) {
+      endTrackingMode();
+    }
+    // 設定モードをクリア
+    mode = null;
+    updateGuideText('');
+    disableVideoControls(false);
+    // ボタンのハイライトを解除
+    setScaleBtn.style.background = '';
+    setOriginBtn.style.background = '';
+    // キャンセルボタンと案内を削除
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) cancelBtn.remove();
+    const cancelHint = document.getElementById('cancelHint');
+    if (cancelHint) cancelHint.remove();
+    
     const url = URL.createObjectURL(file);
     video.src = url;
     video.controls = false;
-    // fileNameSpan.textContent = file.name; // 不要なので削除
     
     // 動画の読み込みが完了したらリサイズを実行
     video.addEventListener('loadeddata', function() {
@@ -379,6 +458,8 @@ let originPoint = null;
 // スケール設定ボタン
 const setScaleBtn = document.getElementById('setScaleBtn');
 setScaleBtn.onclick = () => {
+  // console.log('スケール設定ボタンがクリックされました');
+  // console.log('現在のscalePoints:', scalePoints);
   if (mode === 'set-scale') {
     // 既に設定中の場合はキャンセル
     mode = null;
@@ -396,10 +477,12 @@ setScaleBtn.onclick = () => {
     drawOverlay();
   } else {
     // 新規設定開始
-  mode = 'set-scale';
-  scalePoints = [];
-  updateGuideText('スケール設定: 始点と終点をクリックしてください');
-  disableVideoControls(true);
+    mode = 'set-scale';
+    scalePoints = []; // 強制的にクリア
+    // console.log('新規設定開始: scalePointsをクリアしました');
+    // console.log('クリア後のscalePoints:', scalePoints);
+    updateGuideText('スケール設定: 始点と終点をクリックしてください（終点でShiftキーで水平・鉛直制約）');
+    disableVideoControls(true);
     // ボタンをハイライト表示
     setScaleBtn.style.background = '#ffd';
     // キャンセルボタンをガイドテキストに追加
@@ -450,6 +533,7 @@ setScaleBtn.onclick = () => {
 // 原点設定ボタン
 const setOriginBtn = document.getElementById('setOriginBtn');
 setOriginBtn.onclick = () => {
+  // console.log('原点設定ボタンがクリックされました');
   if (mode === 'set-origin') {
     // 既に設定中の場合はキャンセル
     mode = null;
@@ -523,20 +607,34 @@ function getPhysicalCoords(canvasX, canvasY) {
   const dy = p1.y - p0.y;
   const pixelDist = Math.sqrt(dx * dx + dy * dy);
   if (pixelDist === 0) return null;
-  // theta: スケール線の鉛直（Y軸）からのずれ
-  let theta = Math.atan2(dx, -dy); // dx, -dyで鉛直基準
-  // 始点が終点より下/右の場合、符号を反転して常にY軸上向き
-  if (dy > 0) theta += Math.PI;
+  
+  // 座標軸描画と同じ角度計算を使用
+  let theta;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // ほぼ水平の場合（微小角度補正を保持）
+    if (dx > 0) {
+      // 左→右の場合
+      theta = Math.atan2(dy, dx); // 微小角度補正
+    } else {
+      // 右→左の場合
+      theta = Math.atan2(dy, dx) + Math.PI; // 微小角度補正 + 180度
+    }
+  } else {
+    // ほぼ鉛直の場合
+    theta = Math.atan2(dx, -dy); // dx, -dyで鉛直基準
+    if (dy > 0) theta += Math.PI;
+  }
+  
   // 原点からの相対座標
   const relX = canvasX - originPoint.x;
   const relY = canvasY - originPoint.y;
   // スケール線の傾き分だけ逆回転（画面基準の水平・鉛直軸に合わせる）
   const x_rot =  Math.cos(-theta) * relX - Math.sin(-theta) * relY;
   const y_rot =  Math.sin(-theta) * relX + Math.cos(-theta) * relY;
-  // Y軸方向のスケールでメートル換算
+  // スケールでメートル換算
   const scale = scaleLength / pixelDist;
   const x_phys = x_rot * scale;
-  const y_phys = y_rot * scale;
+  const y_phys = -y_rot * scale; // Y座標の符号を反転（画面座標系と物理座標系の違い）
   return { x: x_phys, y: y_phys };
 }
 
@@ -548,13 +646,29 @@ function physicalToCanvas(x_phys, y_phys) {
   const dy = p1.y - p0.y;
   const pixelDist = Math.sqrt(dx * dx + dy * dy);
   if (pixelDist === 0) return null;
-  let theta = Math.atan2(dx, -dy);
-  if (dy > 0) theta += Math.PI;
+  
+  // 座標軸描画と同じ角度計算を使用
+  let theta;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // ほぼ水平の場合（微小角度補正を保持）
+    if (dx > 0) {
+      // 左→右の場合
+      theta = Math.atan2(dy, dx); // 微小角度補正
+    } else {
+      // 右→左の場合
+      theta = Math.atan2(dy, dx) + Math.PI; // 微小角度補正 + 180度
+    }
+  } else {
+    // ほぼ鉛直の場合
+    theta = Math.atan2(dx, -dy); // dx, -dyで鉛直基準
+    if (dy > 0) theta += Math.PI;
+  }
+  
   // メートル→ピクセル
   const scale = pixelDist / scaleLength;
-  // 画面基準の水平・鉛直軸からスケール線の向きに回転
-  const x_rot =  Math.cos(theta) * x_phys - Math.sin(theta) * y_phys;
-  const y_rot =  Math.sin(theta) * x_phys + Math.cos(theta) * y_phys;
+  // 画面基準の水平・鉛直軸からスケール線の向きに回転（Y座標の符号反転に対応）
+  const x_rot =  Math.cos(theta) * x_phys - Math.sin(theta) * (-y_phys); // y_physの符号を反転
+  const y_rot =  Math.sin(theta) * x_phys + Math.cos(theta) * (-y_phys); // y_physの符号を反転
   const relX = x_rot * scale;
   const relY = y_rot * scale;
   const x = originPoint.x + relX;
@@ -568,19 +682,70 @@ video.addEventListener('loadedmetadata', function() {
   setTimeout(() => {
     resizeCanvasToFit();
   }, 100);
-  // 動画制御用fpsは固定値（30）
-  videoFps = 30;
-  totalFrames = Math.floor(video.duration * videoFps);
-  currentFrame = 0;
-  startFrame = 0;
-  endFrame = totalFrames - 1;
-  startFrameInput.value = startFrame;
-  endFrameInput.value = endFrame;
-  frameSlider.min = startFrame;
-  frameSlider.max = endFrame;
-  frameSlider.value = 0;
-  updateCurrentFrameLabel();
-  drawOverlay();
+  
+  // ユーザーにFPS入力を強制
+  video.addEventListener('loadeddata', function onLoadedData() {
+    if (video.duration > 0) {
+      // FPS入力を強制するポップアップ
+      const userFps = prompt('動画のフレームレート（FPS）を入力してください\n\n例：30, 60, 120\n\n※正確な値を入力しないとフレームが飛んで表示されます', '30');
+      
+      if (userFps !== null && !isNaN(userFps) && parseFloat(userFps) > 0) {
+        // ユーザーが入力したFPSを使用
+        videoFps = parseFloat(userFps);
+        fpsInput.value = videoFps; // UIのFPS入力欄も更新
+        
+        // フレーム数を計算
+        totalFrames = Math.floor(video.duration * videoFps);
+        currentFrame = 0;
+        startFrame = 0;
+        endFrame = totalFrames - 1;
+        startFrameInput.value = startFrame;
+        endFrameInput.value = endFrame;
+        frameSlider.min = startFrame;
+        frameSlider.max = endFrame;
+        frameSlider.value = 0;
+        updateCurrentFrameLabel();
+        drawOverlay();
+        
+        // console.log(`ユーザー入力FPS: ${videoFps}fps, 総フレーム数: ${totalFrames}`);
+      } else {
+        // キャンセルまたは無効な値の場合、デフォルト値を使用
+        videoFps = 30;
+        fpsInput.value = videoFps;
+        totalFrames = Math.floor(video.duration * videoFps);
+        currentFrame = 0;
+        startFrame = 0;
+        endFrame = totalFrames - 1;
+        startFrameInput.value = startFrame;
+        endFrameInput.value = endFrame;
+        frameSlider.min = startFrame;
+        frameSlider.max = endFrame;
+        frameSlider.value = 0;
+        updateCurrentFrameLabel();
+        drawOverlay();
+        
+        console.log(`デフォルトFPS: ${videoFps}fps, 総フレーム数: ${totalFrames}`);
+      }
+    } else {
+      // フォールバック: デフォルト値を使用
+      videoFps = 30;
+      fpsInput.value = videoFps;
+      totalFrames = Math.floor(video.duration * videoFps);
+      currentFrame = 0;
+      startFrame = 0;
+      endFrame = totalFrames - 1;
+      startFrameInput.value = startFrame;
+      endFrameInput.value = endFrame;
+      frameSlider.min = startFrame;
+      frameSlider.max = endFrame;
+      frameSlider.value = 0;
+      updateCurrentFrameLabel();
+      drawOverlay();
+    }
+    
+    // 一度だけ実行するため、イベントリスナーを削除
+    video.removeEventListener('loadeddata', onLoadedData);
+  });
 });
 
 // ウィンドウリサイズ時もcanvasサイズを再調整
@@ -593,9 +758,6 @@ window.addEventListener('resize', function() {
   }, 100);
 });
 
-let zoomFactor = 1.0;
-let zoomOffsetX = 0;
-let zoomOffsetY = 0;
 let isDragging = false;
 let dragStart = { x: 0, y: 0 };
 let dragOffsetStart = { x: 0, y: 0 };
@@ -603,251 +765,48 @@ let mouseDownOnCanvas = false;
 let clickStart = null;
 let dragHappened = false;
 
-const zoomInBtn = document.getElementById('zoomInBtn');
-const zoomOutBtn = document.getElementById('zoomOutBtn');
-const zoomResetBtn = document.getElementById('zoomResetBtn');
-const zoomLevelLabel = document.getElementById('zoomLevelLabel');
+// ズーム機能は削除されたため、関連するコードも削除
+// ブラウザの標準ズーム機能を使用するため、カスタムズーム機能は不要
 
-function updateZoomLabel() {
-  zoomLevelLabel.textContent = `x${zoomFactor.toFixed(2)}`;
-}
-
-zoomInBtn.onclick = () => {
-  zoomFactor = Math.min(zoomFactor * 1.25, 10);
-  updateZoomLabel();
-  drawOverlay();
-};
-zoomOutBtn.onclick = () => {
-  zoomFactor = Math.max(zoomFactor / 1.25, 0.1);
-  updateZoomLabel();
-  drawOverlay();
-};
-zoomResetBtn.onclick = () => {
-  zoomFactor = 1.0;
-  zoomOffsetX = 0;
-  zoomOffsetY = 0;
-  updateZoomLabel();
-  drawOverlay();
-};
-
-updateZoomLabel();
-
-// canvasドラッグでオフセット移動
-canvas.addEventListener('mousedown', function(e) {
-  isDragging = true;
-  dragHappened = false;
-  dragStart = { x: e.clientX, y: e.clientY };
-  dragOffsetStart = { x: zoomOffsetX, y: zoomOffsetY };
-  mouseDownOnCanvas = true;
-  clickStart = { x: e.clientX, y: e.clientY };
-});
+// カーソル設定（ズーム機能は削除されたためシンプルに）
 canvas.addEventListener('mousemove', function(e) {
-  if (isDragging) {
-    dragHappened = true;
-    // ドラッグ中
-    const dx = e.clientX - dragStart.x;
-    const dy = e.clientY - dragStart.y;
-    zoomOffsetX = dragOffsetStart.x + dx;
-    zoomOffsetY = dragOffsetStart.y + dy;
-    drawOverlay();
-    canvas.style.cursor = 'grabbing';
-  } else {
-    // ドラッグしていないときのカーソル切り替え
-    if (mode === 'set-scale' || mode === 'set-origin') {
-      canvas.style.cursor = 'crosshair';
-    } else if (trackingMode) {
-      canvas.style.cursor = 'crosshair';
-    } else {
-      canvas.style.cursor = 'grab';
-    }
-  }
-});
-canvas.addEventListener('mouseup', function(e) {
-  if (!isDragging) return;
-  isDragging = false;
-  if (!mouseDownOnCanvas) return;
-  mouseDownOnCanvas = false;
-  if (!clickStart) return;
-  const dx = e.clientX - clickStart.x;
-  const dy = e.clientY - clickStart.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  // trackingMode時、「ドラッグしていない」かつ「距離が小さい」場合のみ記録
-  if (trackingMode && !dragHappened && dist < 5) {
-    const { x, y } = getCanvasCoords(e);
-    const phys = getPhysicalCoords(x, y);
-    if (phys) {
-      if (currentFrame > endFrame) {
-        endTrackingMode();
-        return;
-      }
-      let frameData = trackingData.find(d => d.frame === currentFrame);
-      if (!frameData) {
-        frameData = { frame: currentFrame, positions: Array(objectCount).fill(null) };
-        trackingData.push(frameData);
-      }
-      frameData.positions[currentObjectIndex] = { x: phys.x, y: phys.y };
-      drawOverlay();
-      updateUndoBtnVisibility();
-      currentObjectIndex++;
-      if (currentObjectIndex >= objectCount) {
-        currentObjectIndex = 0;
-        currentFrame += frameInterval;
-        video.currentTime = currentFrame / videoFps;
-        updateCurrentFrameLabel();
-        updateUndoBtnVisibility();
-      }
-      if (trackingMode) {
-        if (currentFrame > endFrame) {
-          endTrackingMode();
-        } else {
-          const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
-          updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
-        }
-      }
-    } else {
-      alert('スケール・原点・スケール長が未設定です');
-    }
-  }
-  clickStart = null;
-  dragHappened = false;
-  // カーソルをcrosshairに戻す
-  if (trackingMode) {
+  if (mode === 'set-scale' || mode === 'set-origin') {
     canvas.style.cursor = 'crosshair';
+  } else if (trackingMode) {
+    canvas.style.cursor = 'crosshair';
+  } else {
+    canvas.style.cursor = 'default';
   }
 });
-window.addEventListener('mouseup', function(e) {
-  isDragging = false;
-  mouseDownOnCanvas = false;
-  clickStart = null;
-  dragHappened = false;
-});
 
-// drawOverlay: 物体ごとの点描画も保存値そのまま（符号反転・入れ替えなし）
-function drawOverlay() {
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.save();
-  ctx.translate(canvas.width / 2 + zoomOffsetX, canvas.height / 2 + zoomOffsetY);
-  ctx.scale(zoomFactor, zoomFactor);
-  if (video.videoWidth && video.videoHeight) {
-    // 動画を中心に描画
-    ctx.drawImage(video, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
-  }
-  // スケール点
-  ctx.fillStyle = 'blue';
-  scalePoints.forEach(pt => {
-    ctx.beginPath();
-    ctx.arc(pt.x - canvas.width/2, pt.y - canvas.height/2, 3.3, 0, 2 * Math.PI);
-    ctx.fill();
-  });
-  
-  // スケール線と距離表示
-  if (scalePoints.length >= 2) {
-    const [p0, p1] = scalePoints;
-    // スケール線を描画
-    ctx.strokeStyle = 'blue';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(p0.x - canvas.width/2, p0.y - canvas.height/2);
-    ctx.lineTo(p1.x - canvas.width/2, p1.y - canvas.height/2);
-    ctx.stroke();
-    
-    // 距離を表示（スケール長が設定されている場合のみ）
-    if (scaleLength !== null) {
-      const midX = (p0.x + p1.x) / 2 - canvas.width/2;
-      const midY = (p0.y + p1.y) / 2 - canvas.height/2;
-      
-      ctx.fillStyle = 'blue';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      // 背景を白で塗りつぶして文字を見やすくする
-      const text = `${scaleLength} m`;
-      const textMetrics = ctx.measureText(text);
-      const padding = 2;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillRect(
-        midX - textMetrics.width/2 - padding, 
-        midY - 6 - padding, 
-        textMetrics.width + padding * 2, 
-        12 + padding * 2
-      );
-      
-      // 文字を描画
-      ctx.fillStyle = 'blue';
-      ctx.fillText(text, midX, midY);
-    }
-  }
-  // 原点
-  if (originPoint) {
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(originPoint.x - canvas.width/2, originPoint.y - canvas.height/2, 9, 0, 2 * Math.PI);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(originPoint.x - 12 - canvas.width/2, originPoint.y - canvas.height/2);
-    ctx.lineTo(originPoint.x + 12 - canvas.width/2, originPoint.y - canvas.height/2);
-    ctx.moveTo(originPoint.x - canvas.width/2, originPoint.y - 12 - canvas.height/2);
-    ctx.lineTo(originPoint.x - canvas.width/2, originPoint.y + 12 - canvas.height/2);
-    ctx.stroke();
-  }
-  // 記録点（物体ごとに色分け）
-  trackingData.forEach(d => {
-    if (!d.positions) return;
-    d.positions.forEach((pos, idx) => {
-      if (!pos) return;
-      const pt = physicalToCanvas(pos.x, pos.y);
-      if (pt) {
-        ctx.fillStyle = objectColors[idx % objectColors.length];
-        ctx.beginPath();
-        ctx.arc(pt.x - canvas.width/2, pt.y - canvas.height/2, 3, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-    });
-  });
-  // 座標軸を描画
-  drawCoordinateAxes(ctx, canvas.width, canvas.height);
-  ctx.restore();
-}
-
-// クリック座標もズーム・オフセットを考慮
-function getCanvasCoords(e) {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  const cw = canvas.width, ch = canvas.height;
-  const vw = video.videoWidth, vh = video.videoHeight;
-  let dw = cw, dh = ch, dx = 0, dy = 0;
-  if (vw && vh) {
-    const cr = cw / ch, vr = vw / vh;
-    if (cr > vr) {
-      dh = ch;
-      dw = ch * vr;
-      dx = (cw - dw) / 2;
-    } else {
-      dw = cw;
-      dh = cw / vr;
-      dy = (ch - dh) / 2;
-    }
-    // クリック座標を動画描画領域基準に変換
-    const cx = (x - (dx + dw / 2) - zoomOffsetX) / zoomFactor + dw / 2;
-    const cy = (y - (dy + dh / 2) - zoomOffsetY) / zoomFactor + dh / 2;
-    // ★ここでdx, dyは加えない（動画描画領域内の座標にする）
-    return { x: cx, y: cy };
-  }
-  return { x, y };
-}
-
-// canvasクリック時の座標取得をgetCanvasCoordsに変更
+// クリックイベント（ズーム機能は削除されたためシンプルに）
 canvas.addEventListener('click', function(e) {
-  const { x, y } = getCanvasCoords(e);
+  let { x, y } = getCanvasCoords(e);
 
   if (mode) {
     // そのままcanvas座標として記録
     if (mode === 'set-scale') {
+      // console.log('スケール設定: クリック前のscalePoints.length =', scalePoints.length);
+      
+      // 2点目（終点）の場合、Shiftキーが押されているかチェック
+      if (scalePoints.length === 1 && e.shiftKey) {
+        // Shiftキーが押されている場合、始点からの角度を鉛直または水平に制約
+        const startPoint = scalePoints[0];
+        const dx = x - startPoint.x;
+        const dy = y - startPoint.y;
+        
+        // 水平方向と鉛直方向の距離を比較して、より近い方向に制約
+        if (Math.abs(dx) > Math.abs(dy)) {
+          // 水平方向に制約（Y座標を始点と同じにする）
+          y = startPoint.y;
+        } else {
+          // 鉛直方向に制約（X座標を始点と同じにする）
+          x = startPoint.x;
+        }
+      }
+      
       scalePoints.push({ x, y });
+      // console.log('スケール設定: クリック後のscalePoints.length =', scalePoints.length);
       drawOverlay(); // まず青マーカーを描画
       if (scalePoints.length === 2) {
         setTimeout(() => {
@@ -888,7 +847,7 @@ canvas.addEventListener('click', function(e) {
           if (cancelHint) cancelHint.remove();
         }, 50); // 描画後にconfirmを出す
       } else {
-        updateGuideText('スケール設定: 2点目（終点）をクリックしてください');
+        updateGuideText('スケール設定: 2点目（終点）をクリックしてください（Shiftキーで水平・鉛直制約）');
       }
       return;
     } else if (mode === 'set-origin') {
@@ -908,13 +867,142 @@ canvas.addEventListener('click', function(e) {
     return;
   }
 
-  // 物理座標変換（デバッグ用）
-  const phys = getPhysicalCoords(x, y);
-  if (phys) {
-    // 逆変換で位置を確認（必要に応じてデバッグ出力を有効化）
-    const backToCanvas = physicalToCanvas(phys.x, phys.y);
+  // 追跡モード時のクリック処理
+  if (trackingMode) {
+    const phys = getPhysicalCoords(x, y);
+    if (phys) {
+      if (currentFrame > endFrame) {
+        endTrackingMode();
+        return;
+      }
+      let frameData = trackingData.find(d => d.frame === currentFrame);
+      if (!frameData) {
+        frameData = { frame: currentFrame, positions: Array(objectCount).fill(null) };
+        trackingData.push(frameData);
+      }
+      frameData.positions[currentObjectIndex] = { x: phys.x, y: phys.y };
+      drawOverlay();
+      updateUndoBtnVisibility();
+      currentObjectIndex++;
+      if (currentObjectIndex >= objectCount) {
+        currentObjectIndex = 0;
+        currentFrame += frameInterval;
+        video.currentTime = currentFrame / videoFps;
+        updateCurrentFrameLabel();
+        updateUndoBtnVisibility();
+      }
+      if (trackingMode) {
+        if (currentFrame > endFrame) {
+          endTrackingMode();
+        } else {
+          const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+          updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
+        }
+      }
+    } else {
+      alert('スケール・原点・スケール長が未設定です');
+    }
   }
 });
+
+// drawOverlay: 物体ごとの点描画も保存値そのまま（符号反転・入れ替えなし）
+function drawOverlay() {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  // ズーム機能は削除されたため、シンプルな描画
+  if (video.videoWidth && video.videoHeight) {
+    // 動画を中心に描画
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  }
+  // スケール点
+  ctx.fillStyle = 'blue';
+  scalePoints.forEach(pt => {
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 3.3, 0, 2 * Math.PI);
+    ctx.fill();
+  });
+  
+  // スケール線と距離表示
+  if (scalePoints.length >= 2) {
+    const [p0, p1] = scalePoints;
+    // スケール線を描画
+    ctx.strokeStyle = 'blue';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.stroke();
+    
+    // 距離を表示（スケール長が設定されている場合のみ）
+    if (scaleLength !== null) {
+      const midX = (p0.x + p1.x) / 2;
+      const midY = (p0.y + p1.y) / 2;
+      
+      ctx.fillStyle = 'blue';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // 背景を白で塗りつぶして文字を見やすくする
+      const text = `${scaleLength} m`;
+      const textMetrics = ctx.measureText(text);
+      const padding = 2;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillRect(
+        midX - textMetrics.width/2 - padding, 
+        midY - 6 - padding, 
+        textMetrics.width + padding * 2, 
+        12 + padding * 2
+      );
+      
+      // 文字を描画
+      ctx.fillStyle = 'blue';
+      ctx.fillText(text, midX, midY);
+    }
+  }
+  // 原点
+  if (originPoint) {
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(originPoint.x, originPoint.y, 9, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(originPoint.x - 12, originPoint.y);
+    ctx.lineTo(originPoint.x + 12, originPoint.y);
+    ctx.moveTo(originPoint.x, originPoint.y - 12);
+    ctx.lineTo(originPoint.x, originPoint.y + 12);
+    ctx.stroke();
+  }
+  // 記録点（物体ごとに色分け）
+  trackingData.forEach(d => {
+    if (!d.positions) return;
+    d.positions.forEach((pos, idx) => {
+      if (!pos) return;
+      const pt = physicalToCanvas(pos.x, pos.y);
+      if (pt) {
+        ctx.fillStyle = objectColors[idx % objectColors.length];
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    });
+  });
+  // 座標軸を描画
+  drawCoordinateAxes(ctx, canvas.width, canvas.height);
+  ctx.restore();
+}
+
+// クリック座標を取得（ズーム機能は削除されたためシンプルに）
+function getCanvasCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  return { x, y };
+}
+
+// 重複したクリックイベントリスナーを削除
 
 // 動画コントロールの有効/無効化
 function disableVideoControls(disable) {
@@ -986,6 +1074,29 @@ fpsInput.addEventListener('compositionend', () => {
 });
 fpsInput.addEventListener('input', function() {
   if (!isComposingFps) normalizeNumberInput(fpsInput);
+});
+
+// FPS入力欄の変更時にvideoFpsも更新
+fpsInput.addEventListener('change', function() {
+  const newFps = parseFloat(fpsInput.value) || 30;
+  if (newFps > 0) {
+    videoFps = newFps;
+    // フレーム数を再計算
+    if (video.duration > 0) {
+      totalFrames = Math.floor(video.duration * videoFps);
+      endFrame = totalFrames - 1;
+      endFrameInput.value = endFrame;
+      frameSlider.max = endFrame;
+      // 現在のフレームが範囲外になった場合の調整
+      if (currentFrame > endFrame) {
+        currentFrame = endFrame;
+        frameSlider.value = currentFrame;
+        video.currentTime = currentFrame / videoFps;
+      }
+      updateCurrentFrameLabel();
+      console.log(`FPS更新: ${videoFps}fps, 総フレーム数: ${totalFrames}`);
+    }
+  }
 });
 
 startFrameInput.addEventListener('compositionstart', () => { isComposingStart = true; });
@@ -1097,14 +1208,6 @@ exportCsvBtn.onclick = () => {
   header += '\n';
   // データ行生成
   let csv = header;
-  // スケール線の向きを判定
-  let isHorizontal = false;
-  if (scalePoints.length >= 2) {
-    const [p0, p1] = scalePoints;
-    const dx = p1.x - p0.x;
-    const dy = p1.y - p0.y;
-    isHorizontal = Math.abs(dx) > Math.abs(dy);
-  }
   // フレーム順にソート
   const sorted = trackingData.slice().sort((a, b) => a.frame - b.frame);
   sorted.forEach(d => {
@@ -1113,11 +1216,9 @@ exportCsvBtn.onclick = () => {
     for (let i = 0; i < objectCount; i++) {
       const pos = d.positions && d.positions[i];
       if (pos) {
-        if (isHorizontal) {
-          row.push(pos.y.toFixed(3), pos.x.toFixed(3));
-        } else {
-          row.push(pos.x.toFixed(3), (-pos.y).toFixed(3));
-        }
+        // getPhysicalCoords関数で既に正しい座標変換が行われているので、
+        // そのまま出力する（入れ替えや符号反転は行わない）
+        row.push(pos.x.toFixed(3), pos.y.toFixed(3));
       } else {
         row.push('', '');
       }

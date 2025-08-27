@@ -57,6 +57,11 @@ https://ipho2023-commemorative-association.jp/
 
 > This software is provided "as is", without warranty of any kind. Use at your own risk.
 
+## 最新の更新（2025年8月27日）
+
+- **ズーム機能の簡素化**: カスタムズーム機能を削除し、ブラウザ標準のズーム機能（Ctrl/Cmd+マウスホイール、ピンチズーム）を推奨
+- **Shiftキー制約機能**: スケール設定時に終点をクリックする際、Shiftキーを押しながらクリックすると水平・鉛直制約が適用されます
+
 ## 詳細な使い方
 
 詳しい操作方法や機能説明については、以下のファイルをご参照ください：
