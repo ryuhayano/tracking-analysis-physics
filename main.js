@@ -266,68 +266,45 @@ function resizeCanvasToFit() {
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   const zoomLevel = window.devicePixelRatio || 1;
   
-  // iPad Safariの場合の特別処理（固定サイズ使用）
+  // iPad Safariの場合の特別処理（完全固定サイズ）
   if (isIPad && isSafari) {
-    // iPad Safariでは固定サイズを使用してズーム問題を回避
+    // iPad Safariでは完全に固定サイズを使用
     const FIXED_CANVAS_WIDTH = 400;
     const FIXED_CANVAS_HEIGHT = 300;
     
-    if (video.videoWidth && video.videoHeight) {
-      const aspect = video.videoWidth / video.videoHeight;
-      let w, h;
-      
-      // アスペクト比を保ちながら固定サイズ内に収める
-      if (aspect > 1) {
-        // 横長動画
-        w = FIXED_CANVAS_WIDTH;
-        h = w / aspect;
-        if (h > FIXED_CANVAS_HEIGHT) {
-          h = FIXED_CANVAS_HEIGHT;
-          w = h * aspect;
-        }
-      } else {
-        // 縦長動画
-        h = FIXED_CANVAS_HEIGHT;
-        w = h * aspect;
-        if (w > FIXED_CANVAS_WIDTH) {
-          w = FIXED_CANVAS_WIDTH;
-          h = w / aspect;
-        }
-      }
-      
-      canvas.width = Math.floor(w);
-      canvas.height = Math.floor(h);
-      
-      // スライダーの調整
-      const slider = document.getElementById('frameSlider');
-      if (slider) {
-        slider.style.width = '350px';
-        slider.style.maxWidth = '90vw';
-        slider.style.margin = '10px auto 0 auto';
-      }
-      
-      // 座標変換の処理（リサイズ時にマーカー位置を調整）
-      if (oldCanvasWidth > 0 && oldCanvasHeight > 0) {
-        const scaleX = canvas.width / oldCanvasWidth;
-        const scaleY = canvas.height / oldCanvasHeight;
-        
-        // スケール点の座標を調整
-        scalePoints.forEach(pt => {
-          pt.x *= scaleX;
-          pt.y *= scaleY;
-        });
-        
-        // 原点の座標を調整
-        if (originPoint) {
-          originPoint.x *= scaleX;
-          originPoint.y *= scaleY;
-        }
-      }
-      
-      // キャンバスサイズ変更後に必ず描画を更新
-      drawOverlay();
-      return;
+    // 動画のアスペクト比に関係なく固定サイズを使用
+    canvas.width = FIXED_CANVAS_WIDTH;
+    canvas.height = FIXED_CANVAS_HEIGHT;
+    
+    // スライダーの調整
+    const slider = document.getElementById('frameSlider');
+    if (slider) {
+      slider.style.width = '350px';
+      slider.style.maxWidth = '90vw';
+      slider.style.margin = '10px auto 0 auto';
     }
+    
+    // 座標変換の処理（リサイズ時にマーカー位置を調整）
+    if (oldCanvasWidth > 0 && oldCanvasHeight > 0) {
+      const scaleX = canvas.width / oldCanvasWidth;
+      const scaleY = canvas.height / oldCanvasHeight;
+      
+      // スケール点の座標を調整
+      scalePoints.forEach(pt => {
+        pt.x *= scaleX;
+        pt.y *= scaleY;
+      });
+      
+      // 原点の座標を調整
+      if (originPoint) {
+        originPoint.x *= scaleX;
+        originPoint.y *= scaleY;
+      }
+    }
+    
+    // キャンバスサイズ変更後に必ず描画を更新
+    drawOverlay();
+    return;
   }
   
   const controlPanel = document.querySelector('.control-panel');
@@ -844,21 +821,26 @@ window.addEventListener('resize', function() {
   }, 100);
 });
 
-// iPad Safariのズーム状態変更を検出（簡素化）
+// iPad Safariのズーム状態変更を検出（完全無効化）
 let lastZoomLevel = window.devicePixelRatio || 1;
 window.addEventListener('resize', function() {
   const currentZoomLevel = window.devicePixelRatio || 1;
   const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document && window.innerWidth >= 768;
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   
-  // iPad Safariでズームレベルが変更された場合
-  if (isIPad && isSafari && Math.abs(currentZoomLevel - lastZoomLevel) > 0.1) {
+  // iPad Safariではズーム変更を完全に無視
+  if (isIPad && isSafari) {
+    // 何もしない - 固定サイズを維持
+    return;
+  }
+  
+  // その他のデバイスでは通常の処理
+  if (Math.abs(currentZoomLevel - lastZoomLevel) > 0.1) {
     lastZoomLevel = currentZoomLevel;
-    // 固定サイズを使用するため、リサイズは不要
-    // 座標変換のみ実行
-    if (video.videoWidth && video.videoHeight) {
+    setTimeout(() => {
+      resizeCanvasToFit();
       drawOverlay();
-    }
+    }, 200);
   }
 });
 
