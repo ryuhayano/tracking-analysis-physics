@@ -266,15 +266,58 @@ function resizeCanvasToFit() {
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   const zoomLevel = window.devicePixelRatio || 1;
   
-  // iPad Safariの場合の特別処理（完全固定サイズ）
+  // iPad Safariの場合の特別処理（初期サイズ固定）
   if (isIPad && isSafari) {
-    // iPad Safariでは完全に固定サイズを使用
-    const FIXED_CANVAS_WIDTH = 400;
-    const FIXED_CANVAS_HEIGHT = 300;
+    // 初回実行時のみサイズを計算して記録
+    if (!window.ipadSafariCanvasSize) {
+      if (video.videoWidth && video.videoHeight) {
+        const aspect = video.videoWidth / video.videoHeight;
+        const controlPanel = document.querySelector('.control-panel');
+        const controlPanelHeight = controlPanel ? controlPanel.offsetHeight : 0;
+        const verticalMargin = 48;
+        const horizontalMargin = 20;
+        const containerPadding = 16;
+        
+        let availableHeight = (window.innerHeight - controlPanelHeight - verticalMargin - containerPadding) * 0.95;
+        let availableWidth = window.innerWidth - horizontalMargin * 2 - containerPadding;
+        
+        let w, h;
+        if (aspect < 1.0) { // 縦長動画
+          h = availableHeight;
+          w = h * aspect;
+          if (w > availableWidth) {
+            w = availableWidth;
+            h = w / aspect;
+          }
+        } else { // 横長動画
+          w = availableWidth;
+          h = w / aspect;
+          if (h > availableHeight) {
+            h = availableHeight;
+            w = h * aspect;
+          }
+        }
+        
+        // 最小サイズを保証
+        w = Math.max(250, w);
+        h = Math.max(200, h);
+        
+        window.ipadSafariCanvasSize = {
+          width: Math.floor(w),
+          height: Math.floor(h)
+        };
+      }
+    }
     
-    // 動画のアスペクト比に関係なく固定サイズを使用
-    canvas.width = FIXED_CANVAS_WIDTH;
-    canvas.height = FIXED_CANVAS_HEIGHT;
+    // 記録されたサイズを使用
+    if (window.ipadSafariCanvasSize) {
+      canvas.width = window.ipadSafariCanvasSize.width;
+      canvas.height = window.ipadSafariCanvasSize.height;
+    } else {
+      // フォールバック
+      canvas.width = 400;
+      canvas.height = 300;
+    }
     
     // スライダーの調整
     const slider = document.getElementById('frameSlider');
@@ -821,16 +864,20 @@ window.addEventListener('resize', function() {
   }, 100);
 });
 
-// iPad Safariのズーム状態変更を検出（完全無効化）
+// iPad Safariのズーム状態変更を検出（初期サイズ固定）
 let lastZoomLevel = window.devicePixelRatio || 1;
 window.addEventListener('resize', function() {
   const currentZoomLevel = window.devicePixelRatio || 1;
   const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document && window.innerWidth >= 768;
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   
-  // iPad Safariではズーム変更を完全に無視
+  // iPad Safariでは記録されたサイズを維持
   if (isIPad && isSafari) {
-    // 何もしない - 固定サイズを維持
+    if (window.ipadSafariCanvasSize) {
+      canvas.width = window.ipadSafariCanvasSize.width;
+      canvas.height = window.ipadSafariCanvasSize.height;
+      drawOverlay();
+    }
     return;
   }
   
