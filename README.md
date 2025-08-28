@@ -57,7 +57,13 @@ https://ipho2023-commemorative-association.jp/
 
 > This software is provided "as is", without warranty of any kind. Use at your own risk.
 
-## 最新の更新（2025年8月27日）
+## 最新の更新（2025年8月28日）
+
+- **CSV出力方式の改善**: ファイルダウンロードから画面からのコピー方式に変更（iPad Safari対応）
+- **データ形式選択**: Excel用タブ区切りまたはCSV形式を選択可能
+- **iPad Safari対応**: ファイルダウンロードが困難な環境でもデータ取得が可能
+
+## 前回の更新（2025年8月27日）
 
 - **ズーム機能の簡素化**: カスタムズーム機能を削除し、ブラウザ標準のズーム機能（Ctrl/Cmd+マウスホイール、ピンチズーム）を推奨
 - **Shiftキー制約機能**: スケール設定時に終点をクリックする際、Shiftキーを押しながらクリックすると水平・鉛直制約が適用されます
