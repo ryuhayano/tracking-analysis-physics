@@ -1261,21 +1261,47 @@ exportCsvBtn.onclick = () => {
           const result = confirm('iPad Safariの場合：\n\n1. 新しいタブが開きましたか？\n2. タブ内で「共有」ボタンをタップ\n3. 「ファイルに保存」を選択\n4. ファイル名を「' + fname + '」に変更して保存\n\n※ 新しいタブが開かない場合は「キャンセル」を押してください');
           
           if (!result) {
-            // 方法2: クリップボードにコピー
-            navigator.clipboard.writeText(csv).then(() => {
-              alert('代替方法：\n\n1. CSVデータをクリップボードにコピーしました\n2. メモ帳などのアプリを開く\n3. ペーストして「' + fname + '」として保存してください');
-            }).catch(() => {
-              alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
-            });
+            // 方法2: データ形式を選択
+            const formatChoice = confirm('データ形式を選択してください：\n\n「OK」: Excel用（タブ区切り）\n「キャンセル」: CSV形式\n\n※ Excel用を選択すると、iPad Excelに直接ペーストできます');
+            
+            if (formatChoice) {
+              // Excel用のタブ区切りデータ
+              const tabSeparatedData = csv.replace(/,/g, '\t');
+              navigator.clipboard.writeText(tabSeparatedData).then(() => {
+                alert('Excel用データをコピーしました：\n\n1. iPad Excelを開く\n2. 新しいシートを開く\n3. A1セルを選択してペースト\n4. データがセルごとに分割されます');
+              }).catch(() => {
+                alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
+              });
+            } else {
+              // CSV形式
+              navigator.clipboard.writeText(csv).then(() => {
+                alert('CSVデータをコピーしました：\n\n1. メモ帳などのアプリを開く\n2. ペーストして「' + fname + '」として保存\n3. Excelでファイルを開く');
+              }).catch(() => {
+                alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
+              });
+            }
           }
         }, 1000);
       } else {
         // ポップアップがブロックされた場合
-        navigator.clipboard.writeText(csv).then(() => {
-          alert('ポップアップがブロックされました。\n\n代替方法：\n1. CSVデータをクリップボードにコピーしました\n2. メモ帳などのアプリを開く\n3. ペーストして「' + fname + '」として保存してください');
-        }).catch(() => {
-          alert('ポップアップがブロックされました。\n\n代替方法：\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
-        });
+        const formatChoice = confirm('ポップアップがブロックされました。\n\nデータ形式を選択してください：\n\n「OK」: Excel用（タブ区切り）\n「キャンセル」: CSV形式\n\n※ Excel用を選択すると、iPad Excelに直接ペーストできます');
+        
+        if (formatChoice) {
+          // Excel用のタブ区切りデータ
+          const tabSeparatedData = csv.replace(/,/g, '\t');
+          navigator.clipboard.writeText(tabSeparatedData).then(() => {
+            alert('Excel用データをコピーしました：\n\n1. iPad Excelを開く\n2. 新しいシートを開く\n3. A1セルを選択してペースト\n4. データがセルごとに分割されます');
+          }).catch(() => {
+            alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
+          });
+        } else {
+          // CSV形式
+          navigator.clipboard.writeText(csv).then(() => {
+            alert('CSVデータをコピーしました：\n\n1. メモ帳などのアプリを開く\n2. ペーストして「' + fname + '」として保存\n3. Excelでファイルを開く');
+          }).catch(() => {
+            alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
+          });
+        }
       }
     };
     reader.readAsDataURL(blob);
