@@ -1321,34 +1321,73 @@ exportCsvBtn.onclick = () => {
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   
   if (isIPad && isSafari) {
-    // iPad Safariの場合：シンプルな方法
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const dataUrl = e.target.result;
+    // iPad Safariの場合：まず直接ダウンロードを試す
+    try {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fname;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
-      // 新しいタブでCSVを開く（Safariが自動的にテーブル表示）
-      const newWindow = window.open(dataUrl, '_blank');
-      
-      if (newWindow) {
-        // ポップアップが成功した場合：シンプルな案内
-        setTimeout(() => {
-          alert('iPad Safariの場合：\n\n1. 新しいタブが開きました\n2. SafariがCSVをテーブル形式で表示します\n3. アドレスバーの横にダウンロードボタン（↓）が表示されます\n4. テーブルを選択してコピーし、Excelにペーストしてください\n\n※ ポップアップがブロックされた場合は、再度お試しください');
-        }, 500);
-      } else {
-        // ポップアップがブロックされた場合：手動コピー
-        const formatChoice = confirm('ポップアップがブロックされました。\n\nデータ形式を選択してください：\n\n「OK」: Excel用（タブ区切り）\n「キャンセル」: CSV形式');
+      // 少し待ってから結果を確認
+      setTimeout(() => {
+        const downloadSuccess = confirm('ダウンロードを試行しました。\n\nファイルがダウンロードされましたか？\n\n「OK」: ダウンロード成功\n「キャンセル」: ダウンロード失敗 - 代替方法を試す');
         
-        if (formatChoice) {
-          // Excel用のタブ区切りデータ
-          const tabSeparatedData = csv.replace(/,/g, '\t');
-          showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
-        } else {
-          // CSV形式
-          showManualCopyDialog(csv, 'CSV形式');
+        if (!downloadSuccess) {
+          // ダウンロード失敗の場合：新しいタブで開く
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const dataUrl = e.target.result;
+            const newWindow = window.open(dataUrl, '_blank');
+            
+            if (newWindow) {
+              setTimeout(() => {
+                alert('iPad Safariの場合：\n\n1. 新しいタブが開きました\n2. SafariがCSVをテーブル形式で表示します\n3. アドレスバーの横にダウンロードボタン（↓）が表示されます\n4. テーブルを選択してコピーし、Excelにペーストしてください');
+              }, 500);
+            } else {
+              // ポップアップも失敗：手動コピー
+              const formatChoice = confirm('ダウンロードとポップアップが失敗しました。\n\nデータ形式を選択してください：\n\n「OK」: Excel用（タブ区切り）\n「キャンセル」: CSV形式');
+              
+              if (formatChoice) {
+                const tabSeparatedData = csv.replace(/,/g, '\t');
+                showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
+              } else {
+                showManualCopyDialog(csv, 'CSV形式');
+              }
+            }
+          };
+          reader.readAsDataURL(blob);
         }
-      }
-    };
-    reader.readAsDataURL(blob);
+      }, 1000);
+    } catch (error) {
+      // 直接ダウンロードが失敗した場合：新しいタブで開く
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        const newWindow = window.open(dataUrl, '_blank');
+        
+        if (newWindow) {
+          setTimeout(() => {
+            alert('iPad Safariの場合：\n\n1. 新しいタブが開きました\n2. SafariがCSVをテーブル形式で表示します\n3. アドレスバーの横にダウンロードボタン（↓）が表示されます\n4. テーブルを選択してコピーし、Excelにペーストしてください');
+          }, 500);
+        } else {
+          // ポップアップも失敗：手動コピー
+          const formatChoice = confirm('ダウンロードとポップアップが失敗しました。\n\nデータ形式を選択してください：\n\n「OK」: Excel用（タブ区切り）\n「キャンセル」: CSV形式');
+          
+          if (formatChoice) {
+            const tabSeparatedData = csv.replace(/,/g, '\t');
+            showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
+          } else {
+            showManualCopyDialog(csv, 'CSV形式');
+          }
+        }
+      };
+      reader.readAsDataURL(blob);
+    }
   } else {
     // その他のブラウザ：通常のダウンロード
     const url = URL.createObjectURL(blob);
