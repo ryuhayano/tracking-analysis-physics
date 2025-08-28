@@ -1203,6 +1203,80 @@ video.addEventListener('timeupdate', function() {
   }
 });
 
+// 手動コピー用ダイアログ関数
+function showManualCopyDialog(data, formatType) {
+  // モーダルダイアログを作成
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 90%;
+    max-height: 80%;
+    overflow: auto;
+  `;
+  
+  const title = document.createElement('h3');
+  title.textContent = `${formatType}データをコピー`;
+  title.style.marginBottom = '15px';
+  
+  const instructions = document.createElement('p');
+  instructions.textContent = `1. 以下のデータを長押しして選択\n2. 「コピー」をタップ\n3. ${formatType === 'Excel用（タブ区切り）' ? 'iPad ExcelでA1セルを選択してペースト' : 'メモ帳にペーストして「tracking_data.csv」として保存'}`;
+  instructions.style.marginBottom = '15px';
+  
+  const textarea = document.createElement('textarea');
+  textarea.value = data;
+  textarea.style.cssText = `
+    width: 100%;
+    height: 200px;
+    font-family: monospace;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 15px;
+  `;
+  textarea.readOnly = true;
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '閉じる';
+  closeBtn.style.cssText = `
+    padding: 10px 20px;
+    background: #007AFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+  `;
+  closeBtn.onclick = () => {
+    document.body.removeChild(modal);
+  };
+  
+  content.appendChild(title);
+  content.appendChild(instructions);
+  content.appendChild(textarea);
+  content.appendChild(closeBtn);
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  // テキストエリアを自動選択
+  textarea.select();
+}
+
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 exportCsvBtn.onclick = () => {
   if (!trackingData.length) {
@@ -1267,18 +1341,30 @@ exportCsvBtn.onclick = () => {
             if (formatChoice) {
               // Excel用のタブ区切りデータ
               const tabSeparatedData = csv.replace(/,/g, '\t');
-              navigator.clipboard.writeText(tabSeparatedData).then(() => {
-                alert('Excel用データをコピーしました：\n\n1. iPad Excelを開く\n2. 新しいシートを開く\n3. A1セルを選択してペースト\n4. データがセルごとに分割されます');
-              }).catch(() => {
-                alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
-              });
+              
+              // クリップボードにコピーを試行
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(tabSeparatedData).then(() => {
+                  alert('Excel用データをコピーしました：\n\n1. iPad Excelを開く\n2. 新しいシートを開く\n3. A1セルを選択してペースト\n4. データがセルごとに分割されます');
+                }).catch(() => {
+                  // フォールバック：手動コピー案内
+                  showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
+                });
+              } else {
+                // クリップボードAPIが利用できない場合
+                showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
+              }
             } else {
               // CSV形式
-              navigator.clipboard.writeText(csv).then(() => {
-                alert('CSVデータをコピーしました：\n\n1. メモ帳などのアプリを開く\n2. ペーストして「' + fname + '」として保存\n3. Excelでファイルを開く');
-              }).catch(() => {
-                alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
-              });
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(csv).then(() => {
+                  alert('CSVデータをコピーしました：\n\n1. メモ帳などのアプリを開く\n2. ペーストして「' + fname + '」として保存\n3. Excelでファイルを開く');
+                }).catch(() => {
+                  showManualCopyDialog(csv, 'CSV形式');
+                });
+              } else {
+                showManualCopyDialog(csv, 'CSV形式');
+              }
             }
           }
         }, 1000);
@@ -1289,18 +1375,27 @@ exportCsvBtn.onclick = () => {
         if (formatChoice) {
           // Excel用のタブ区切りデータ
           const tabSeparatedData = csv.replace(/,/g, '\t');
-          navigator.clipboard.writeText(tabSeparatedData).then(() => {
-            alert('Excel用データをコピーしました：\n\n1. iPad Excelを開く\n2. 新しいシートを開く\n3. A1セルを選択してペースト\n4. データがセルごとに分割されます');
-          }).catch(() => {
-            alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
-          });
+          
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(tabSeparatedData).then(() => {
+              alert('Excel用データをコピーしました：\n\n1. iPad Excelを開く\n2. 新しいシートを開く\n3. A1セルを選択してペースト\n4. データがセルごとに分割されます');
+            }).catch(() => {
+              showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
+            });
+          } else {
+            showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
+          }
         } else {
           // CSV形式
-          navigator.clipboard.writeText(csv).then(() => {
-            alert('CSVデータをコピーしました：\n\n1. メモ帳などのアプリを開く\n2. ペーストして「' + fname + '」として保存\n3. Excelでファイルを開く');
-          }).catch(() => {
-            alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
-          });
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(csv).then(() => {
+              alert('CSVデータをコピーしました：\n\n1. メモ帳などのアプリを開く\n2. ペーストして「' + fname + '」として保存\n3. Excelでファイルを開く');
+            }).catch(() => {
+              showManualCopyDialog(csv, 'CSV形式');
+            });
+          } else {
+            showManualCopyDialog(csv, 'CSV形式');
+          }
         }
       }
     };
