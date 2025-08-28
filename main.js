@@ -1247,14 +1247,38 @@ exportCsvBtn.onclick = () => {
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   
   if (isIPad && isSafari) {
-    // iPad Safariの場合：新しいタブで開いて手動保存
-    const url = URL.createObjectURL(blob);
-    const newWindow = window.open(url, '_blank');
-    if (newWindow) {
-      alert('iPad Safariの場合：\n\n1. 新しいタブが開きました\n2. タブ内で「共有」ボタンをタップ\n3. 「ファイルに保存」を選択\n4. ファイル名を「' + fname + '」に変更して保存してください');
-    } else {
-      alert('ポップアップがブロックされました。\n\nブラウザの設定でポップアップを許可してから再度お試しください。');
-    }
+    // iPad Safariの場合：複数の方法を試す
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const dataUrl = e.target.result;
+      
+      // 方法1: データURLで新しいタブを開く
+      const newWindow = window.open(dataUrl, '_blank');
+      
+      if (newWindow) {
+        // 少し遅延を入れてからアラートを表示
+        setTimeout(() => {
+          const result = confirm('iPad Safariの場合：\n\n1. 新しいタブが開きましたか？\n2. タブ内で「共有」ボタンをタップ\n3. 「ファイルに保存」を選択\n4. ファイル名を「' + fname + '」に変更して保存\n\n※ 新しいタブが開かない場合は「キャンセル」を押してください');
+          
+          if (!result) {
+            // 方法2: クリップボードにコピー
+            navigator.clipboard.writeText(csv).then(() => {
+              alert('代替方法：\n\n1. CSVデータをクリップボードにコピーしました\n2. メモ帳などのアプリを開く\n3. ペーストして「' + fname + '」として保存してください');
+            }).catch(() => {
+              alert('代替方法：\n\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
+            });
+          }
+        }, 1000);
+      } else {
+        // ポップアップがブロックされた場合
+        navigator.clipboard.writeText(csv).then(() => {
+          alert('ポップアップがブロックされました。\n\n代替方法：\n1. CSVデータをクリップボードにコピーしました\n2. メモ帳などのアプリを開く\n3. ペーストして「' + fname + '」として保存してください');
+        }).catch(() => {
+          alert('ポップアップがブロックされました。\n\n代替方法：\n1. 以下のデータをコピーしてください\n2. メモ帳などのアプリで「' + fname + '」として保存してください\n\n' + csv.substring(0, 200) + '...');
+        });
+      }
+    };
+    reader.readAsDataURL(blob);
   } else {
     // その他のブラウザ：通常のダウンロード
     const url = URL.createObjectURL(blob);
