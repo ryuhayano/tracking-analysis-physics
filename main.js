@@ -266,75 +266,32 @@ function resizeCanvasToFit() {
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   const zoomLevel = window.devicePixelRatio || 1;
   
-  // iPad Safariの場合の特別処理（ズーム状態に関係なく）
+  // iPad Safariの場合の特別処理（固定サイズ使用）
   if (isIPad && isSafari) {
-    // ズーム中は最小サイズを保証し、過度に小さくならないようにする
-    const MIN_ZOOM_CANVAS_WIDTH = 300;
-    const MIN_ZOOM_CANVAS_HEIGHT = 250;
-    
-    // 利用可能な領域を計算（ズーム対応）
-    const controlPanel = document.querySelector('.control-panel');
-    const controlPanelHeight = controlPanel ? controlPanel.offsetHeight : 0;
-    const slider = document.getElementById('frameSlider');
-    const verticalMargin = 60; // ズーム時は余白を増やす
-    const horizontalMargin = 30;
-    const containerPadding = 20;
-    
-    let availableHeight = (window.innerHeight - controlPanelHeight - verticalMargin - containerPadding) * 0.9;
-    let availableWidth = window.innerWidth - horizontalMargin * 2 - containerPadding;
-    
-    // 最小サイズを保証
-    availableHeight = Math.max(availableHeight, MIN_ZOOM_CANVAS_HEIGHT);
-    availableWidth = Math.max(availableWidth, MIN_ZOOM_CANVAS_WIDTH);
+    // iPad Safariでは固定サイズを使用してズーム問題を回避
+    const FIXED_CANVAS_WIDTH = 400;
+    const FIXED_CANVAS_HEIGHT = 300;
     
     if (video.videoWidth && video.videoHeight) {
       const aspect = video.videoWidth / video.videoHeight;
       let w, h;
       
-      if (aspect < 1.0) { // 縦長動画
-        h = availableHeight;
-        w = h * aspect;
-        if (w > availableWidth) {
-          w = availableWidth;
-          h = w / aspect;
-        }
-      } else { // 横長動画
-        w = availableWidth;
+      // アスペクト比を保ちながら固定サイズ内に収める
+      if (aspect > 1) {
+        // 横長動画
+        w = FIXED_CANVAS_WIDTH;
         h = w / aspect;
-        if (h > availableHeight) {
-          h = availableHeight;
+        if (h > FIXED_CANVAS_HEIGHT) {
+          h = FIXED_CANVAS_HEIGHT;
           w = h * aspect;
         }
-      }
-      
-      // 最小サイズを保証
-      w = Math.max(MIN_ZOOM_CANVAS_WIDTH, w);
-      h = Math.max(MIN_ZOOM_CANVAS_HEIGHT, h);
-      
-      // iPad Safariでは強制的に最小サイズを保証
-      if (w < MIN_ZOOM_CANVAS_WIDTH || h < MIN_ZOOM_CANVAS_HEIGHT) {
-        if (video.videoWidth && video.videoHeight) {
-          const aspect = video.videoWidth / video.videoHeight;
-          if (aspect > 1) {
-            // 横長動画
-            w = MIN_ZOOM_CANVAS_WIDTH;
-            h = w / aspect;
-            if (h < MIN_ZOOM_CANVAS_HEIGHT) {
-              h = MIN_ZOOM_CANVAS_HEIGHT;
-              w = h * aspect;
-            }
-          } else {
-            // 縦長動画
-            h = MIN_ZOOM_CANVAS_HEIGHT;
-            w = h * aspect;
-            if (w < MIN_ZOOM_CANVAS_WIDTH) {
-              w = MIN_ZOOM_CANVAS_WIDTH;
-              h = w / aspect;
-            }
-          }
-        } else {
-          w = MIN_ZOOM_CANVAS_WIDTH;
-          h = MIN_ZOOM_CANVAS_HEIGHT;
+      } else {
+        // 縦長動画
+        h = FIXED_CANVAS_HEIGHT;
+        w = h * aspect;
+        if (w > FIXED_CANVAS_WIDTH) {
+          w = FIXED_CANVAS_WIDTH;
+          h = w / aspect;
         }
       }
       
@@ -342,9 +299,9 @@ function resizeCanvasToFit() {
       canvas.height = Math.floor(h);
       
       // スライダーの調整
+      const slider = document.getElementById('frameSlider');
       if (slider) {
-        const sliderWidth = Math.max(150, Math.min(500, availableWidth - 60));
-        slider.style.width = sliderWidth + 'px';
+        slider.style.width = '350px';
         slider.style.maxWidth = '90vw';
         slider.style.margin = '10px auto 0 auto';
       }
@@ -887,7 +844,7 @@ window.addEventListener('resize', function() {
   }, 100);
 });
 
-// iPad Safariのズーム状態変更を検出
+// iPad Safariのズーム状態変更を検出（簡素化）
 let lastZoomLevel = window.devicePixelRatio || 1;
 window.addEventListener('resize', function() {
   const currentZoomLevel = window.devicePixelRatio || 1;
@@ -897,11 +854,11 @@ window.addEventListener('resize', function() {
   // iPad Safariでズームレベルが変更された場合
   if (isIPad && isSafari && Math.abs(currentZoomLevel - lastZoomLevel) > 0.1) {
     lastZoomLevel = currentZoomLevel;
-    // 少し遅延を入れてからリサイズを実行
-    setTimeout(() => {
-      resizeCanvasToFit();
+    // 固定サイズを使用するため、リサイズは不要
+    // 座標変換のみ実行
+    if (video.videoWidth && video.videoHeight) {
       drawOverlay();
-    }, 200);
+    }
   }
 });
 
