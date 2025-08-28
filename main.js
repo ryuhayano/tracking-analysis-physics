@@ -1321,81 +1321,30 @@ exportCsvBtn.onclick = () => {
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   
   if (isIPad && isSafari) {
-    // iPad Safariの場合：複数の方法を試す
+    // iPad Safariの場合：シンプルな方法
     const reader = new FileReader();
     reader.onload = function(e) {
       const dataUrl = e.target.result;
       
-      // 方法1: データURLで新しいタブを開く
+      // 新しいタブでCSVを開く（Safariが自動的にテーブル表示）
       const newWindow = window.open(dataUrl, '_blank');
       
       if (newWindow) {
-        // 少し遅延を入れてからアラートを表示
+        // ポップアップが成功した場合：シンプルな案内
         setTimeout(() => {
-          const result = confirm('iPad Safariの場合：\n\n1. 新しいタブが開きましたか？\n2. タブ内で「共有」ボタンをタップ\n3. 「ファイルに保存」を選択\n4. ファイル名を「' + fname + '」に変更して保存\n\n※ 新しいタブが開かない場合は「キャンセル」を押してください');
-          
-          if (!result) {
-            // 方法2: データ形式を選択
-            const formatChoice = confirm('データ形式を選択してください：\n\n「OK」: Excel用（タブ区切り）\n「キャンセル」: CSV形式\n\n※ Excel用を選択すると、iPad Excelに直接ペーストできます');
-            
-            if (formatChoice) {
-              // Excel用のタブ区切りデータ
-              const tabSeparatedData = csv.replace(/,/g, '\t');
-              
-              // クリップボードにコピーを試行
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(tabSeparatedData).then(() => {
-                  alert('Excel用データをコピーしました：\n\n1. iPad Excelを開く\n2. 新しいシートを開く\n3. A1セルを選択してペースト\n4. データがセルごとに分割されます');
-                }).catch(() => {
-                  // フォールバック：手動コピー案内
-                  showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
-                });
-              } else {
-                // クリップボードAPIが利用できない場合
-                showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
-              }
-            } else {
-              // CSV形式
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(csv).then(() => {
-                  alert('CSVデータをコピーしました：\n\n1. メモ帳などのアプリを開く\n2. ペーストして「' + fname + '」として保存\n3. Excelでファイルを開く');
-                }).catch(() => {
-                  showManualCopyDialog(csv, 'CSV形式');
-                });
-              } else {
-                showManualCopyDialog(csv, 'CSV形式');
-              }
-            }
-          }
-        }, 1000);
+          alert('iPad Safariの場合：\n\n1. 新しいタブが開きました\n2. SafariがCSVをテーブル形式で表示します\n3. アドレスバーの横にダウンロードボタン（↓）が表示されます\n4. テーブルを選択してコピーし、Excelにペーストしてください\n\n※ ポップアップがブロックされた場合は、再度お試しください');
+        }, 500);
       } else {
-        // ポップアップがブロックされた場合
-        const formatChoice = confirm('ポップアップがブロックされました。\n\nデータ形式を選択してください：\n\n「OK」: Excel用（タブ区切り）\n「キャンセル」: CSV形式\n\n※ Excel用を選択すると、iPad Excelに直接ペーストできます');
+        // ポップアップがブロックされた場合：手動コピー
+        const formatChoice = confirm('ポップアップがブロックされました。\n\nデータ形式を選択してください：\n\n「OK」: Excel用（タブ区切り）\n「キャンセル」: CSV形式');
         
         if (formatChoice) {
           // Excel用のタブ区切りデータ
           const tabSeparatedData = csv.replace(/,/g, '\t');
-          
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(tabSeparatedData).then(() => {
-              alert('Excel用データをコピーしました：\n\n1. iPad Excelを開く\n2. 新しいシートを開く\n3. A1セルを選択してペースト\n4. データがセルごとに分割されます');
-            }).catch(() => {
-              showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
-            });
-          } else {
-            showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
-          }
+          showManualCopyDialog(tabSeparatedData, 'Excel用（タブ区切り）');
         } else {
           // CSV形式
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(csv).then(() => {
-              alert('CSVデータをコピーしました：\n\n1. メモ帳などのアプリを開く\n2. ペーストして「' + fname + '」として保存\n3. Excelでファイルを開く');
-            }).catch(() => {
-              showManualCopyDialog(csv, 'CSV形式');
-            });
-          } else {
-            showManualCopyDialog(csv, 'CSV形式');
-          }
+          showManualCopyDialog(csv, 'CSV形式');
         }
       }
     };
