@@ -266,11 +266,19 @@ function resizeCanvasToFit() {
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   const zoomLevel = window.devicePixelRatio || 1;
   
-  // iPad Safariの場合の特別処理（アスペクト比固定サイズ）
+  // iPad Safariの場合の特別処理（アスペクト比記録固定）
   if (isIPad && isSafari) {
-    if (video.videoWidth && video.videoHeight) {
-      const aspect = video.videoWidth / video.videoHeight;
-      
+    // 初回実行時のみアスペクト比を記録
+    if (!window.ipadSafariVideoAspect) {
+      if (video.videoWidth && video.videoHeight) {
+        window.ipadSafariVideoAspect = video.videoWidth / video.videoHeight;
+      }
+    }
+    
+    // 記録されたアスペクト比を使用（なければ動画から取得）
+    const aspect = window.ipadSafariVideoAspect || (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 1);
+    
+    if (aspect) {
       // 動画のアスペクト比に基づいて固定サイズを決定
       let w, h;
       if (aspect < 1.0) { // 縦長動画
@@ -836,17 +844,18 @@ window.addEventListener('resize', function() {
   }, 100);
 });
 
-// iPad Safariのズーム状態変更を検出（アスペクト比固定）
+// iPad Safariのズーム状態変更を検出（アスペクト比記録固定）
 let lastZoomLevel = window.devicePixelRatio || 1;
 window.addEventListener('resize', function() {
   const currentZoomLevel = window.devicePixelRatio || 1;
   const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document && window.innerWidth >= 768;
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   
-  // iPad Safariではアスペクト比固定サイズを再計算
+  // iPad Safariでは記録されたアスペクト比を使用
   if (isIPad && isSafari) {
-    if (video.videoWidth && video.videoHeight) {
-      const aspect = video.videoWidth / video.videoHeight;
+    const aspect = window.ipadSafariVideoAspect || (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 1);
+    
+    if (aspect) {
       let w, h;
       
       if (aspect < 1.0) { // 縦長動画
