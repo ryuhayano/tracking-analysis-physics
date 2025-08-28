@@ -264,9 +264,9 @@ function resizeCanvasToFit() {
   const controlPanel = document.querySelector('.control-panel');
   const controlPanelHeight = controlPanel ? controlPanel.offsetHeight : 0;
   const slider = document.getElementById('frameSlider');
-  const verticalMargin = 64; // 下部余白を大きめに
-  const horizontalMargin = 24; // 左右余白
-  const containerPadding = 20; // video-containerのpadding等
+  const verticalMargin = 48; // 下部余白を縮小
+  const horizontalMargin = 20; // 左右余白を縮小
+  const containerPadding = 16; // video-containerのpadding等を縮小
   const MIN_CANVAS_WIDTH = 100;
   const MIN_CANVAS_HEIGHT = 100;
 
@@ -277,7 +277,7 @@ function resizeCanvasToFit() {
   }
 
   // 利用可能な領域を計算（従来通り）
-  let availableHeight = (window.innerHeight - controlPanelHeight - verticalMargin - containerPadding) * 0.92;
+  let availableHeight = (window.innerHeight - controlPanelHeight - verticalMargin - containerPadding) * 0.95;
   let availableWidth = window.innerWidth - horizontalMargin * 2 - containerPadding;
 
   let w = availableWidth;
@@ -362,12 +362,23 @@ function resizeCanvasToFit() {
     }
   }
 
-  // 座標変換は削除（ズーム機能が削除されたため不要）
-
-  // ズーム状態はリセットしない
-  // zoomFactor = 1.0;
-  // zoomOffsetX = 0;
-  // zoomOffsetY = 0;
+  // 座標変換の処理（リサイズ時にマーカー位置を調整）
+  if (oldCanvasWidth > 0 && oldCanvasHeight > 0) {
+    const scaleX = canvas.width / oldCanvasWidth;
+    const scaleY = canvas.height / oldCanvasHeight;
+    
+    // スケール点の座標を調整
+    scalePoints.forEach(pt => {
+      pt.x *= scaleX;
+      pt.y *= scaleY;
+    });
+    
+    // 原点の座標を調整
+    if (originPoint) {
+      originPoint.x *= scaleX;
+      originPoint.y *= scaleY;
+    }
+  }
   
   // キャンバスサイズ変更後に必ず描画を更新
   drawOverlay();
@@ -919,7 +930,7 @@ function drawOverlay() {
   ctx.fillStyle = 'blue';
   scalePoints.forEach(pt => {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 3.3, 0, 2 * Math.PI);
+    ctx.arc(pt.x, pt.y, 2.5, 0, 2 * Math.PI);
     ctx.fill();
   });
   
@@ -964,15 +975,15 @@ function drawOverlay() {
   // 原点
   if (originPoint) {
     ctx.strokeStyle = 'red';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(originPoint.x, originPoint.y, 9, 0, 2 * Math.PI);
+    ctx.arc(originPoint.x, originPoint.y, 6, 0, 2 * Math.PI);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(originPoint.x - 12, originPoint.y);
-    ctx.lineTo(originPoint.x + 12, originPoint.y);
-    ctx.moveTo(originPoint.x, originPoint.y - 12);
-    ctx.lineTo(originPoint.x, originPoint.y + 12);
+    ctx.moveTo(originPoint.x - 8, originPoint.y);
+    ctx.lineTo(originPoint.x + 8, originPoint.y);
+    ctx.moveTo(originPoint.x, originPoint.y - 8);
+    ctx.lineTo(originPoint.x, originPoint.y + 8);
     ctx.stroke();
   }
   // 記録点（物体ごとに色分け）
@@ -984,7 +995,7 @@ function drawOverlay() {
       if (pt) {
         ctx.fillStyle = objectColors[idx % objectColors.length];
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 3, 0, 2 * Math.PI);
+        ctx.arc(pt.x, pt.y, 2.2, 0, 2 * Math.PI);
         ctx.fill();
       }
     });
@@ -1227,15 +1238,35 @@ exportCsvBtn.onclick = () => {
   });
   let fname = prompt('保存するファイル名を入力してください（例: data.csv）', 'tracking_data.csv');
   if (!fname) fname = 'tracking_data.csv';
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fname;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  
+  // iPad Safari対応のダウンロード処理
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  
+  // デバイス判定（iPad Safariかどうか）
+  const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document && window.innerWidth >= 768;
+  const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+  
+  if (isIPad && isSafari) {
+    // iPad Safariの場合：新しいタブで開いて手動保存
+    const url = URL.createObjectURL(blob);
+    const newWindow = window.open(url, '_blank');
+    if (newWindow) {
+      alert('iPad Safariの場合：\n\n1. 新しいタブが開きました\n2. タブ内で「共有」ボタンをタップ\n3. 「ファイルに保存」を選択\n4. ファイル名を「' + fname + '」に変更して保存してください');
+    } else {
+      alert('ポップアップがブロックされました。\n\nブラウザの設定でポップアップを許可してから再度お試しください。');
+    }
+  } else {
+    // その他のブラウザ：通常のダウンロード
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 };
 
 /**
@@ -1244,9 +1275,11 @@ exportCsvBtn.onclick = () => {
  * Y軸: 青色、スケール線の方向
  */
 function drawCoordinateAxes(ctx, cw, ch) {
-  if (!originPoint || scalePoints.length < 2 || !scaleLength) return;
+  if (!originPoint || scalePoints.length < 2 || !scaleLength) {
+    return;
+  }
   ctx.save();
-  ctx.globalAlpha = 0.4;
+  ctx.globalAlpha = 0.6;
   const [p0, p1] = scalePoints;
   const dx = p1.x - p0.x;
   const dy = p1.y - p0.y;
@@ -1265,15 +1298,21 @@ function drawCoordinateAxes(ctx, cw, ch) {
     }
   } else {
     // ほぼ鉛直の場合
-    theta = Math.atan2(dx, -dy); // dx, -dyで鉛直基準
-    if (dy > 0) theta += Math.PI;
+    if (dy > 0) {
+      // 上→下の場合
+      theta = Math.PI / 2; // 90度（下向き）
+    } else {
+      // 下→上の場合
+      theta = -Math.PI / 2; // -90度（上向き）
+    }
   }
-  let axisLength = Math.min(cw, ch) * 0.25;
-  ctx.translate(originPoint.x - cw / 2, originPoint.y - ch / 2);
+  let axisLength = Math.min(cw, ch) * 0.2;
+  // 原点を中心に座標軸を描画
+  ctx.translate(originPoint.x, originPoint.y);
   ctx.rotate(theta);
   // X軸（スケール線の法線方向）
   ctx.strokeStyle = '#0f0';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(-axisLength, 0);
   ctx.lineTo(axisLength, 0);
@@ -1284,13 +1323,14 @@ function drawCoordinateAxes(ctx, cw, ch) {
   ctx.rotate(0);
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(-10, -5);
+  ctx.lineTo(-6, -3);
   ctx.moveTo(0, 0);
-  ctx.lineTo(-10, 5);
+  ctx.lineTo(-6, 3);
   ctx.stroke();
   ctx.restore();
   // Y軸（スケール線の向き）
   ctx.strokeStyle = '#00f';
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(0, axisLength);
   ctx.lineTo(0, -axisLength);
@@ -1301,17 +1341,19 @@ function drawCoordinateAxes(ctx, cw, ch) {
   ctx.rotate(-Math.PI / 2);
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(-10, -5);
+  ctx.lineTo(-6, -3);
   ctx.moveTo(0, 0);
-  ctx.lineTo(-10, 5);
+  ctx.lineTo(-6, 3);
   ctx.stroke();
   ctx.restore();
+  
+
   // 目盛り（X軸）
   const scale = scaleLength / pixelDist;
   const tickSpacing = scaleLength / 10;
   const pixelTickSpacing = tickSpacing / scale;
   ctx.strokeStyle = '#0f0';
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 0.6;
   for (let i = -5; i <= 5; i++) {
     if (i === 0) continue;
     const tx = i * pixelTickSpacing;
@@ -1320,8 +1362,8 @@ function drawCoordinateAxes(ctx, cw, ch) {
     ctx.translate(tx, ty);
     ctx.rotate(0);
     ctx.beginPath();
-    ctx.moveTo(0, -5);
-    ctx.lineTo(0, 5);
+    ctx.moveTo(0, -4);
+    ctx.lineTo(0, 4);
     ctx.stroke();
     ctx.restore();
     ctx.save();
@@ -1335,6 +1377,7 @@ function drawCoordinateAxes(ctx, cw, ch) {
   }
   // 目盛り（Y軸）
   ctx.strokeStyle = '#00f';
+  ctx.lineWidth = 0.6;
   for (let i = -5; i <= 5; i++) {
     if (i === 0) continue;
     const tx = 0;
@@ -1343,8 +1386,8 @@ function drawCoordinateAxes(ctx, cw, ch) {
     ctx.translate(tx, ty);
     ctx.rotate(-Math.PI / 2);
     ctx.beginPath();
-    ctx.moveTo(-5, 0);
-    ctx.lineTo(5, 0);
+    ctx.moveTo(-4, 0);
+    ctx.lineTo(4, 0);
     ctx.stroke();
     ctx.restore();
     ctx.save();
@@ -1353,7 +1396,8 @@ function drawCoordinateAxes(ctx, cw, ch) {
     ctx.font = '8px Arial';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText((i * tickSpacing).toFixed(1), 8, 0);
+    // Y軸の目盛りは負の値を正しく表示
+    ctx.fillText((-i * tickSpacing).toFixed(1), 8, 0);
     ctx.restore();
   }
   ctx.restore();
