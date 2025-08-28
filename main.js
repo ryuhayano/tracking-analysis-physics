@@ -266,11 +266,11 @@ function resizeCanvasToFit() {
   const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   const zoomLevel = window.devicePixelRatio || 1;
   
-  // iPad Safariでズーム中の場合の特別処理
-  if (isIPad && isSafari && zoomLevel > 1.1) {
+  // iPad Safariの場合の特別処理（ズーム状態に関係なく）
+  if (isIPad && isSafari) {
     // ズーム中は最小サイズを保証し、過度に小さくならないようにする
-    const MIN_ZOOM_CANVAS_WIDTH = 200;
-    const MIN_ZOOM_CANVAS_HEIGHT = 150;
+    const MIN_ZOOM_CANVAS_WIDTH = 300;
+    const MIN_ZOOM_CANVAS_HEIGHT = 250;
     
     // 利用可能な領域を計算（ズーム対応）
     const controlPanel = document.querySelector('.control-panel');
@@ -310,6 +310,33 @@ function resizeCanvasToFit() {
       // 最小サイズを保証
       w = Math.max(MIN_ZOOM_CANVAS_WIDTH, w);
       h = Math.max(MIN_ZOOM_CANVAS_HEIGHT, h);
+      
+      // iPad Safariでは強制的に最小サイズを保証
+      if (w < MIN_ZOOM_CANVAS_WIDTH || h < MIN_ZOOM_CANVAS_HEIGHT) {
+        if (video.videoWidth && video.videoHeight) {
+          const aspect = video.videoWidth / video.videoHeight;
+          if (aspect > 1) {
+            // 横長動画
+            w = MIN_ZOOM_CANVAS_WIDTH;
+            h = w / aspect;
+            if (h < MIN_ZOOM_CANVAS_HEIGHT) {
+              h = MIN_ZOOM_CANVAS_HEIGHT;
+              w = h * aspect;
+            }
+          } else {
+            // 縦長動画
+            h = MIN_ZOOM_CANVAS_HEIGHT;
+            w = h * aspect;
+            if (w < MIN_ZOOM_CANVAS_WIDTH) {
+              w = MIN_ZOOM_CANVAS_WIDTH;
+              h = w / aspect;
+            }
+          }
+        } else {
+          w = MIN_ZOOM_CANVAS_WIDTH;
+          h = MIN_ZOOM_CANVAS_HEIGHT;
+        }
+      }
       
       canvas.width = Math.floor(w);
       canvas.height = Math.floor(h);
@@ -413,6 +440,12 @@ function resizeCanvasToFit() {
   // 最小サイズを保証
   w = Math.max(MIN_CANVAS_WIDTH, w);
   h = Math.max(MIN_CANVAS_HEIGHT, h);
+  
+  // iPad Safariの場合は追加の最小サイズ保証
+  if (isIPad && isSafari) {
+    w = Math.max(250, w);
+    h = Math.max(200, h);
+  }
 
   canvas.width = Math.floor(w);
   canvas.height = Math.floor(h);
