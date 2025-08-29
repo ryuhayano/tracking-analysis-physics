@@ -504,6 +504,43 @@ videoInput.addEventListener('change', function() {
   }
 });
 
+// --- Accurate frame stepping helpers ---
+let pendingSeekFrame = null;
+let rvfcHandle = null;
+
+function frameToTime(n) {
+  return (n + 0.5) / videoFps; // フレーム中央に置く
+}
+
+function goToFrame(n) {
+  n = Math.max(startFrame, Math.min(endFrame, n|0));
+  pendingSeekFrame = n;
+
+  // 前のコールバックが残っていればキャンセル
+  if (rvfcHandle && typeof video.cancelVideoFrameCallback === 'function') {
+    try { video.cancelVideoFrameCallback(rvfcHandle); } catch (_) {}
+    rvfcHandle = null;
+  }
+
+  const drawWhenReady = () => {
+    // ここで初めて描画＆状態更新
+    currentFrame = pendingSeekFrame;
+    frameSlider.value = currentFrame;
+    updateCurrentFrameLabel();
+    drawOverlay();
+    pendingSeekFrame = null;
+  };
+
+  if (typeof video.requestVideoFrameCallback === 'function') {
+    rvfcHandle = video.requestVideoFrameCallback(() => { drawWhenReady(); });
+  } else {
+    // フォールバック：描画完了まで2フレーム待つ
+    requestAnimationFrame(() => requestAnimationFrame(drawWhenReady));
+  }
+
+  video.currentTime = frameToTime(n);
+}
+
 // 再生・停止・フレーム送り/戻し（雛形）
 document.getElementById('playBtn').onclick = () => video.play();
 document.getElementById('pauseBtn').onclick = () => video.pause();
@@ -511,9 +548,7 @@ document.getElementById('pauseBtn').onclick = () => video.pause();
 document.getElementById('nextFrameBtn').onclick = () => {
   video.pause();
   if (currentFrame < endFrame) {
-    currentFrame++;
-    video.currentTime = currentFrame / videoFps;
-    updateCurrentFrameLabel();
+    goToFrame(currentFrame + 1);
   }
 };
 
@@ -530,9 +565,7 @@ prevFrameBtn.onclick = () => {
     updateGuideText(`物体1の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
   }
   if (currentFrame > startFrame) {
-    currentFrame--;
-    video.currentTime = currentFrame / videoFps;
-    updateCurrentFrameLabel();
+    goToFrame(currentFrame - 1);
   }
 };
 
@@ -1014,9 +1047,7 @@ canvas.addEventListener('click', function(e) {
       currentObjectIndex++;
       if (currentObjectIndex >= objectCount) {
         currentObjectIndex = 0;
-        currentFrame += frameInterval;
-        video.currentTime = currentFrame / videoFps;
-        updateCurrentFrameLabel();
+        goToFrame(currentFrame + frameInterval);
         updateUndoBtnVisibility();
       }
       if (trackingMode) {
@@ -1308,9 +1339,13 @@ frameSlider.addEventListener('input', function() {
 
 // 動画の再生位置が変わったらスライダーも追従
 video.addEventListener('timeupdate', function() {
-  currentFrame = Math.round(video.currentTime * videoFps);
-  frameSlider.value = currentFrame;
-  updateCurrentFrameLabel();
+  if (pendingSeekFrame != null) return; // goToFrame 進行中は上書きしない
+  const f = Math.floor(video.currentTime * videoFps + 1e-3);
+  if (f !== currentFrame) {
+    currentFrame = f;
+    frameSlider.value = currentFrame;
+    updateCurrentFrameLabel();
+  }
   // 終了フレームに到達したら一時停止のみ（巻き戻しやスライダー操作は妨げない）
   if (currentFrame >= endFrame && !video.paused) {
     video.pause();
@@ -1600,12 +1635,10 @@ undoBtn.onclick = () => {
   }
   if (currentFrame > startFrame) {
     const prevFrame = Math.max(startFrame, currentFrame - frameInterval);
-    currentFrame = prevFrame;
-    video.currentTime = prevFrame / videoFps;
+    goToFrame(prevFrame);
     const idx = trackingData.findIndex(d => d.frame === prevFrame);
     if (idx !== -1) {
       trackingData.splice(idx, 1);
-      drawOverlay();
     }
     currentObjectIndex = 0;
     const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
