@@ -62,12 +62,34 @@
         </div>
         <div class="control-section">
           <button id="undoBtn" style="display:none;">Undo</button>
-          <button id="exportCsvBtn">CSV出力</button>
+          <button id="exportCsvBtn">データ出力</button>
           <button id="resetBtn">やり直し</button>
         </div>
       </div>
       <div class="frame-info">
         <span id="currentFrameLabel">現在フレーム: 0</span>
+      </div>
+      <div class="quick-guide">
+        <div class="guide-step">
+          <span class="step-number">1</span>
+          <span class="step-text">ファイル選択</span>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">2</span>
+          <span class="step-text">原点設定</span>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">3</span>
+          <span class="step-text">スケール設定</span>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">4</span>
+          <span class="step-text">追跡開始（間隔設定）</span>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">5</span>
+          <span class="step-text">データ出力</span>
+        </div>
       </div>
     </div>
     <div class="video-container">
@@ -86,13 +108,72 @@ document.getElementById('loadSampleVideo').onclick = function() {
   video.src = 'assets/videos/5cups.mov';
   video.load();
   
+  // サンプル動画フラグを設定（FPS入力ダイアログをスキップするため）
+  window.isSampleVideo = true;
+  
   // サンプル動画のファイル名を表示
   const fileNameDisplay = document.getElementById('fileNameDisplay');
-  console.log('Sample video loaded');
-  console.log('fileNameDisplay element:', fileNameDisplay);
-  fileNameDisplay.textContent = '5cups.mov (サンプル動画)';
+  fileNameDisplay.textContent = '5cups.mov (120fps)';
   
-  // UIリセットやガイド表示は必要に応じて追加
+  // FPS入力欄を120に設定
+  const fpsInput = document.getElementById('fpsInput');
+  if (fpsInput) {
+    fpsInput.value = '120';
+  }
+  
+  // クイックガイドのステップを更新
+  updateQuickGuideStep(2);
+  
+  // 新しいファイル読み込み時にリセット処理を実行（ファイル選択時と同じ処理）
+  // 追跡データをクリア
+  if (typeof trackingData !== 'undefined') {
+    trackingData = [];
+  }
+  // スケール・原点設定をクリア
+  if (typeof scalePoints !== 'undefined') {
+    scalePoints = [];
+  }
+  if (typeof originPoint !== 'undefined') {
+    originPoint = null;
+  }
+  if (typeof scaleLength !== 'undefined') {
+    scaleLength = null;
+  }
+  // 追跡モードを終了
+  if (typeof trackingMode !== 'undefined' && trackingMode) {
+    if (typeof endTrackingMode === 'function') {
+      endTrackingMode();
+    }
+  }
+  // 設定モードをクリア
+  if (typeof mode !== 'undefined') {
+    mode = null;
+  }
+  if (typeof updateGuideText === 'function') {
+    updateGuideText('');
+  }
+  if (typeof disableVideoControls === 'function') {
+    disableVideoControls(false);
+  }
+  // ボタンのハイライトを解除
+  const setScaleBtn = document.getElementById('setScaleBtn');
+  const setOriginBtn = document.getElementById('setOriginBtn');
+  if (setScaleBtn) setScaleBtn.style.background = '';
+  if (setOriginBtn) setOriginBtn.style.background = '';
+  // キャンセルボタンと案内を削除
+  const cancelBtn = document.getElementById('cancelBtn');
+  if (cancelBtn) cancelBtn.remove();
+  const cancelHint = document.getElementById('cancelHint');
+  if (cancelHint) cancelHint.remove();
+  
+  // 動画の読み込みが完了したらリサイズを実行
+  video.addEventListener('loadeddata', function() {
+    setTimeout(() => {
+      if (typeof resizeCanvasToFit === 'function') {
+        resizeCanvasToFit();
+      }
+    }, 100);
+  }, { once: true });
 };
 </script>
 </body>

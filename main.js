@@ -83,6 +83,37 @@ function updateGuideText(text, color) {
   }
 }
 
+// クイックガイドのステップ管理
+let currentStep = 0; // 0: ファイル選択前, 1: ファイル選択済み, 2: 原点設定済み, 3: スケール設定済み, 4: 追跡完了
+
+function updateQuickGuideStep(step) {
+  currentStep = step;
+  const guideSteps = document.querySelectorAll('.guide-step');
+  
+  guideSteps.forEach((stepElement, index) => {
+    const stepNumber = stepElement.querySelector('.step-number');
+    const stepText = stepElement.querySelector('.step-text');
+    
+    // ステップの状態を判定（indexは0ベース、stepは1ベース）
+    if (index < step - 1) {
+      // 完了したステップ（緑）
+      stepNumber.style.background = '#28a745';
+      stepText.style.color = '#28a745';
+      stepText.style.fontWeight = 'bold';
+    } else if (index === step - 1) {
+      // 現在のステップ（黄）
+      stepNumber.style.background = '#ffc107';
+      stepText.style.color = '#856404';
+      stepText.style.fontWeight = 'bold';
+    } else {
+      // 未完了のステップ（青）
+      stepNumber.style.background = '#2277cc';
+      stepText.style.color = '#495057';
+      stepText.style.fontWeight = '500';
+    }
+  });
+}
+
 // Undoボタンをガイドテキストの右横に移動する関数
 function moveUndoBtnToGuide() {
   if (guideDiv.contains(undoBtn)) {
@@ -190,6 +221,9 @@ startTrackingBtn.onclick = () => {
     startTrackingBtn.style.background = '#ffd';
     objectCountSelect.disabled = true;
     if (frameIntervalSelect) frameIntervalSelect.disabled = true;
+    
+    // クイックガイドのステップを更新
+    updateQuickGuideStep(4);
   } else {
     endTrackingMode();
   }
@@ -197,14 +231,14 @@ startTrackingBtn.onclick = () => {
 };
 
 function resizeCanvasToFit() {
+  
   // リサイズ前のcanvasサイズを保存
   const oldCanvasWidth = canvas.width;
   const oldCanvasHeight = canvas.height;
   
-
-  
   const controlPanel = document.querySelector('.control-panel');
   const controlPanelWidth = controlPanel ? controlPanel.offsetWidth : 280;
+  
   const slider = document.getElementById('frameSlider');
   const verticalMargin = 0; // 上下余白を完全に削除
   const horizontalMargin = 0; // 左右余白を完全に削除
@@ -213,30 +247,29 @@ function resizeCanvasToFit() {
   const MIN_CANVAS_HEIGHT = 150;
 
   // 利用可能な領域を計算（UI左動画右レイアウト）
-  let availableHeight = window.innerHeight - verticalMargin * 2 - containerPadding;
-  let availableWidth = window.innerWidth - controlPanelWidth - horizontalMargin * 2 - containerPadding;
+  const videoContainer = document.querySelector('.video-container');
+  const actualVideoContainerHeight = videoContainer ? videoContainer.offsetHeight : window.innerHeight;
+  const actualVideoContainerWidth = videoContainer ? videoContainer.offsetWidth : window.innerWidth - controlPanelWidth;
+  
+  let availableHeight = actualVideoContainerHeight - verticalMargin * 2 - containerPadding;
+  let availableWidth = actualVideoContainerWidth - horizontalMargin * 2 - containerPadding;
 
   let w = availableWidth;
   let h = availableHeight;
-  let sliderHeight = -10; // スライダーを大幅に下にずらして動画エリアを拡大
+  let sliderHeight = 80; // スライダーとその周辺の余白を考慮（操作しやすさのため増加）
 
   if (video.videoWidth && video.videoHeight) {
     const aspect = video.videoWidth / video.videoHeight;
     
     // より積極的にcanvasいっぱいに表示
     if (aspect < 1.0) { // 縦長動画
-      // 高さを優先して最大限活用（余裕を完全に削除）
+      // 縦長動画の場合、高さ制限のみを考慮
       h = availableHeight - sliderHeight;
       w = h * aspect;
-      // 幅がはみ出す場合は幅に合わせて調整
+      // 幅が利用可能な幅を超える場合は調整
       if (w > availableWidth) {
         w = availableWidth;
         h = w / aspect;
-      }
-      // 縦長動画の場合はさらに高さを優先
-      if (h < availableHeight - sliderHeight) {
-        h = availableHeight - sliderHeight;
-        w = h * aspect;
       }
     } else { // 横長動画
       // 幅を優先して最大限活用
@@ -250,6 +283,7 @@ function resizeCanvasToFit() {
     }
   }
 
+  // 最小サイズを保証
   // 最小サイズを保証
   w = Math.max(MIN_CANVAS_WIDTH, w);
   h = Math.max(MIN_CANVAS_HEIGHT, h);
@@ -287,10 +321,8 @@ function resizeCanvasToFit() {
   // キャンバスサイズ変更後に必ず描画を更新
   drawOverlay();
   
-  // デバッグ用：キャンバスサイズをコンソールに出力
-  // console.log(`Canvas size: ${canvas.width} x ${canvas.height}`);
-  // console.log(`Scale points:`, scalePoints);
-  // console.log(`Origin point:`, originPoint);
+
+
 }
 
 videoInput.addEventListener('change', function() {
@@ -298,9 +330,11 @@ videoInput.addEventListener('change', function() {
   if (file) {
     // ファイル名を表示
     const fileNameDisplay = document.getElementById('fileNameDisplay');
-    console.log('File selected:', file.name);
-    console.log('fileNameDisplay element:', fileNameDisplay);
+    // ファイル名を表示
     fileNameDisplay.textContent = file.name;
+    
+    // クイックガイドのステップを更新
+    updateQuickGuideStep(2);
     
     // 新しいファイル読み込み時にリセット処理を実行
     // 追跡データをクリア
@@ -373,6 +407,10 @@ function goToFrame(n) {
         setTimeout(() => {
           endTrackingMode();
           updateGuideText('追跡が完了しました');
+          
+          // クイックガイドのステップを更新
+          updateQuickGuideStep(5);
+          
           window.trackingCompleted = false;
         }, 100);
       }
@@ -432,8 +470,7 @@ let originPoint = null;
 // スケール設定ボタン
 const setScaleBtn = document.getElementById('setScaleBtn');
 setScaleBtn.onclick = () => {
-  // console.log('スケール設定ボタンがクリックされました');
-  // console.log('現在のscalePoints:', scalePoints);
+  
   if (mode === 'set-scale') {
     // 既に設定中の場合はキャンセル
     mode = null;
@@ -453,8 +490,7 @@ setScaleBtn.onclick = () => {
     // 新規設定開始
     mode = 'set-scale';
     scalePoints = []; // 強制的にクリア
-    // console.log('新規設定開始: scalePointsをクリアしました');
-    // console.log('クリア後のscalePoints:', scalePoints);
+
     updateGuideText('スケール設定: 始点と終点をクリックしてください（終点でShiftキーで水平・鉛直制約）');
     disableVideoControls(true);
     // ボタンをハイライト表示
@@ -507,7 +543,7 @@ setScaleBtn.onclick = () => {
 // 原点設定ボタン
 const setOriginBtn = document.getElementById('setOriginBtn');
 setOriginBtn.onclick = () => {
-  // console.log('原点設定ボタンがクリックされました');
+  
   if (mode === 'set-origin') {
     // 既に設定中の場合はキャンセル
     mode = null;
@@ -660,13 +696,11 @@ video.addEventListener('loadedmetadata', function() {
   // ユーザーにFPS入力を強制
   video.addEventListener('loadeddata', function onLoadedData() {
     if (video.duration > 0) {
-      // FPS入力を強制するポップアップ
-      const userFps = prompt('動画のフレームレート（FPS）を入力してください\n\n例：30, 60, 120\n\n※正確な値を入力しないとフレームが飛んで表示されます', '30');
-      
-      if (userFps !== null && !isNaN(userFps) && parseFloat(userFps) > 0) {
-        // ユーザーが入力したFPSを使用
-        videoFps = parseFloat(userFps);
-        fpsInput.value = videoFps; // UIのFPS入力欄も更新
+      // サンプル動画の場合はFPS入力ダイアログをスキップ
+      if (window.isSampleVideo) {
+        // サンプル動画の場合は既に設定されたFPS値（120）を使用
+        videoFps = parseFloat(fpsInput.value) || 120;
+        window.isSampleVideo = false; // フラグをリセット
         
         // フレーム数を計算
         totalFrames = Math.floor(video.duration * videoFps);
@@ -680,25 +714,43 @@ video.addEventListener('loadedmetadata', function() {
         frameSlider.value = 0;
         updateCurrentFrameLabel();
         drawOverlay();
-        
-        // console.log(`ユーザー入力FPS: ${videoFps}fps, 総フレーム数: ${totalFrames}`);
       } else {
-        // キャンセルまたは無効な値の場合、デフォルト値を使用
-        videoFps = 30;
-        fpsInput.value = videoFps;
-        totalFrames = Math.floor(video.duration * videoFps);
-        currentFrame = 0;
-        startFrame = 0;
-        endFrame = totalFrames - 1;
-        startFrameInput.value = startFrame;
-        endFrameInput.value = endFrame;
-        frameSlider.min = startFrame;
-        frameSlider.max = endFrame;
-        frameSlider.value = 0;
-        updateCurrentFrameLabel();
-        drawOverlay();
-        
-        console.log(`デフォルトFPS: ${videoFps}fps, 総フレーム数: ${totalFrames}`);
+        // 通常の動画の場合はFPS入力を強制するポップアップ
+        const userFps = prompt('動画のフレームレート（FPS）を入力してください\n\n例：30, 60, 120\n\n※正確な値を入力しないとフレームが飛んで表示されます', '30');
+      
+        if (userFps !== null && !isNaN(userFps) && parseFloat(userFps) > 0) {
+          // ユーザーが入力したFPSを使用
+          videoFps = parseFloat(userFps);
+          fpsInput.value = videoFps; // UIのFPS入力欄も更新
+          
+          // フレーム数を計算
+          totalFrames = Math.floor(video.duration * videoFps);
+          currentFrame = 0;
+          startFrame = 0;
+          endFrame = totalFrames - 1;
+          startFrameInput.value = startFrame;
+          endFrameInput.value = endFrame;
+          frameSlider.min = startFrame;
+          frameSlider.max = endFrame;
+          frameSlider.value = 0;
+          updateCurrentFrameLabel();
+          drawOverlay();
+        } else {
+          // キャンセルまたは無効な値の場合、デフォルト値を使用
+          videoFps = 30;
+          fpsInput.value = videoFps;
+          totalFrames = Math.floor(video.duration * videoFps);
+          currentFrame = 0;
+          startFrame = 0;
+          endFrame = totalFrames - 1;
+          startFrameInput.value = startFrame;
+          endFrameInput.value = endFrame;
+          frameSlider.min = startFrame;
+          frameSlider.max = endFrame;
+          frameSlider.value = 0;
+          updateCurrentFrameLabel();
+          drawOverlay();
+        }
       }
     } else {
       // フォールバック: デフォルト値を使用
@@ -732,14 +784,6 @@ window.addEventListener('resize', function() {
   }, 100);
 });
 
-// ウィンドウリサイズ時の処理
-window.addEventListener('resize', function() {
-  setTimeout(() => {
-    resizeCanvasToFit();
-    drawOverlay();
-  }, 100);
-});
-
 let isDragging = false;
 let dragStart = { x: 0, y: 0 };
 let dragOffsetStart = { x: 0, y: 0 };
@@ -768,7 +812,7 @@ canvas.addEventListener('click', function(e) {
   if (mode) {
     // そのままcanvas座標として記録
     if (mode === 'set-scale') {
-      // console.log('スケール設定: クリック前のscalePoints.length =', scalePoints.length);
+
       
       // 2点目（終点）の場合、Shiftキーが押されているかチェック
       if (scalePoints.length === 1 && e.shiftKey) {
@@ -788,7 +832,7 @@ canvas.addEventListener('click', function(e) {
       }
       
       scalePoints.push({ x, y });
-      // console.log('スケール設定: クリック後のscalePoints.length =', scalePoints.length);
+      
       drawOverlay(); // まず青マーカーを描画
       if (scalePoints.length === 2) {
         setTimeout(() => {
@@ -799,6 +843,9 @@ canvas.addEventListener('click', function(e) {
           if (len && !isNaN(len)) {
             scaleLength = parseFloat(len);
             drawOverlay(); // スケール設定完了時に座標軸を表示
+            
+            // クイックガイドのステップを更新
+            updateQuickGuideStep(4);
             } else if (len !== null) {
               // 空文字や無効な値の場合
               alert('有効な数値を入力してください');
@@ -845,6 +892,9 @@ canvas.addEventListener('click', function(e) {
       const cancelHint = document.getElementById('cancelHint');
       if (cancelHint) cancelHint.remove();
       drawOverlay(); // 原点設定完了時に座標軸を表示
+      
+      // クイックガイドのステップを更新
+      updateQuickGuideStep(3);
     }
     return;
   }
@@ -887,6 +937,7 @@ canvas.addEventListener('click', function(e) {
 
 // drawOverlay: 物体ごとの点描画も保存値そのまま（符号反転・入れ替えなし）
 function drawOverlay() {
+  
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
@@ -1076,7 +1127,7 @@ fpsInput.addEventListener('change', function() {
         video.currentTime = currentFrame / videoFps;
       }
       updateCurrentFrameLabel();
-      console.log(`FPS更新: ${videoFps}fps, 総フレーム数: ${totalFrames}`);
+      // FPSが更新されました
     }
   }
 });
@@ -1232,6 +1283,9 @@ video.addEventListener('ended', function() {
   if (trackingMode) {
     endTrackingMode();
     updateGuideText('追跡が完了しました');
+    
+    // クイックガイドのステップを更新
+    updateQuickGuideStep(5);
   }
 });
 
@@ -1316,6 +1370,11 @@ exportCsvBtn.onclick = () => {
     return;
   }
   
+  // クイックガイドのステップを更新
+  updateQuickGuideStep(5);
+  
+
+  
   // ユーザー入力のfpsを取得
   const fps = parseFloat(fpsInput.value) || 30;
   
@@ -1346,17 +1405,93 @@ exportCsvBtn.onclick = () => {
   // タブ区切りデータも生成
   const tabData = csv.replace(/,/g, '\t');
   
-  // データ形式を選択
-  const formatChoice = confirm('データ形式を選択してください：\n\n「Tab」: Excel用（タブ区切り）\n「CSV」: CSV形式\n\n※ Excel用を選択すると、Excelに直接ペーストできます');
-  
-  if (formatChoice) {
-    // Excel用（タブ区切り）
-    showCopyDialog(tabData, 'Excel用（タブ区切り）');
-  } else {
-    // CSV形式
-    showCopyDialog(csv, 'CSV形式');
-  }
+  // カスタムダイアログでデータ形式を選択
+  showFormatSelectionDialog(tabData, csv);
 };
+
+/**
+ * データ形式選択ダイアログを表示
+ */
+function showFormatSelectionDialog(tabData, csvData) {
+  // 既存のダイアログがあれば削除
+  const existingDialog = document.getElementById('formatSelectionDialog');
+  if (existingDialog) {
+    existingDialog.remove();
+  }
+  
+  // ダイアログ要素を作成
+  const dialog = document.createElement('div');
+  dialog.id = 'formatSelectionDialog';
+  dialog.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+  `;
+  
+  const dialogContent = document.createElement('div');
+  dialogContent.style.cssText = `
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    text-align: center;
+  `;
+  
+  dialogContent.innerHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #333;">データ形式を選択してください</h3>
+    <div style="display: flex; gap: 15px; justify-content: center;">
+      <button id="tabBtn" style="
+        padding: 12px 24px;
+        background: #007AFF;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+      ">Excel用</button>
+      <button id="csvBtn" style="
+        padding: 12px 24px;
+        background: #34C759;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+      ">CSV</button>
+    </div>
+  `;
+  
+  dialog.appendChild(dialogContent);
+  document.body.appendChild(dialog);
+  
+  // イベントリスナーを追加
+  document.getElementById('tabBtn').onclick = () => {
+    dialog.remove();
+    showCopyDialog(tabData, 'Excel用（タブ区切り）');
+  };
+  
+  document.getElementById('csvBtn').onclick = () => {
+    dialog.remove();
+    showCopyDialog(csvData, 'CSV形式');
+  };
+  
+  // 背景クリックでダイアログを閉じる
+  dialog.onclick = (e) => {
+    if (e.target === dialog) {
+      dialog.remove();
+    }
+  };
+}
 
 /**
  * 座標軸を描画（画面基準の水平・鉛直軸で描画）
@@ -1525,4 +1660,9 @@ undoBtn.onclick = () => {
     updateGuideText(`物体1の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[0]);
   }
 };
+
+// 初期化時にクイックガイドをステップ0に設定
+document.addEventListener('DOMContentLoaded', function() {
+  updateQuickGuideStep(0);
+});
 

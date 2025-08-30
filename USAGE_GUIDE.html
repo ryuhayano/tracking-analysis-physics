@@ -11,96 +11,181 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tracking Analysis for Physics 使い方ガイド</title>
   <style>
-    body { font-family: 'Segoe UI', 'Hiragino Sans', Arial, sans-serif; background: #f9f9fc; color: #222; margin: 0; padding: 0; }
-    .container { max-width: 700px; margin: 32px auto 32px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px #0001; padding: 32px 24px; }
-    h1 { font-size: 1.7em; margin-bottom: 0.2em; }
-    h2 { font-size: 1.2em; margin-top: 2em; margin-bottom: 0.5em; color: #2277cc; }
-    .step { margin-bottom: 2.2em; }
-    .step img { display: block; margin: 12px auto 0 auto; max-width: 95%; border-radius: 6px; box-shadow: 0 1px 6px #0002; }
-    ul.hint { background: #eef6ff; border-left: 4px solid #2277cc; padding: 12px 18px; border-radius: 6px; margin: 2em 0 0.5em 0; }
-    ul.hint li { margin-bottom: 0.4em; }
+    body { 
+      font-family: 'Segoe UI', 'Hiragino Sans', Arial, sans-serif; 
+      background: #f9f9fc; 
+      color: #222; 
+      margin: 0; 
+      padding: 0; 
+    }
+    .container { 
+      max-width: 800px; 
+      margin: 32px auto 32px auto; 
+      background: #fff; 
+      border-radius: 10px; 
+      box-shadow: 0 2px 8px #0001; 
+      padding: 32px 24px; 
+    }
+    h1 { 
+      font-size: 1.7em; 
+      margin-bottom: 0.2em; 
+      color: #2277cc;
+    }
+    h2 { 
+      font-size: 1.3em; 
+      margin-top: 2.5em; 
+      margin-bottom: 0.8em; 
+      color: #2277cc; 
+      border-left: 4px solid #2277cc;
+      padding-left: 12px;
+    }
+    h3 {
+      font-size: 1.1em;
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+      color: #333;
+    }
+    .step { 
+      margin-bottom: 2.5em; 
+      padding: 20px;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    .step img { 
+      display: block; 
+      margin: 16px auto 0 auto; 
+      max-width: 95%; 
+      border-radius: 6px; 
+      box-shadow: 0 2px 6px #0002; 
+    }
+    ul.hint { 
+      background: #eef6ff; 
+      border-left: 4px solid #2277cc; 
+      padding: 16px 20px; 
+      border-radius: 6px; 
+      margin: 2em 0 0.5em 0; 
+    }
+    ul.hint li { 
+      margin-bottom: 0.6em; 
+    }
+    .tip {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 6px;
+      padding: 12px;
+      margin: 15px 0;
+    }
+    .tip:before {
+      content: "💡 ";
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Tracking Analysis for Physics<br>使い方ガイド</h1>
+    
     <p>
-      このガイドでは、<b>2023年共通テストで出題されたアルミカップを落とす実験</b>を原典とし、解析の流れを静止画で直感的に説明します。<br>
-      下図は実験のイメージです。<br>
-      <b>ここでは、サンプル動画（5cups.mov）を「サンプル動画を読み込む」ボタンで読み込み、それを解析する例を示しています。</b>
+      このガイドでは、<b>2023年共通テストで出題されたアルミカップを落とす実験</b>を例として、解析の流れを説明します。<br>
+      下図は実験のイメージです。
     </p>
-          <img src="assets/images/aluminum_cups.png" alt="アルミカップ落下実験イメージ" style="display:block; margin:16px auto 24px auto; max-width:80%; border-radius:6px; box-shadow:0 1px 6px #0002;">
+    
+    <img src="assets/images/aluminum_cups.png" alt="アルミカップ落下実験イメージ" style="display:block; margin:16px auto 24px auto; max-width:80%; border-radius:6px; box-shadow:0 1px 6px #0002;">
+    
     <p>
-      実際に例として見せている動画では、カップが5枚重ねてあります（n=5）。
+      実際の例では、カップが5枚重ねてあります（n=5）。
     </p>
+
     <div class="step">
       <h2>1. 動画ファイルを選択・初期設定</h2>
       <p>
-        サンプル動画で練習する場合は「サンプル動画を読み込む」ボタンを、<br>
-        ご自身の動画を使う場合は「Choose File」ボタンで動画（mp4, mov等）を選んでください。<br>
+        <strong>サンプル動画で練習する場合：</strong>「サンプル動画」ボタンをクリック<br>
+        <strong>ご自身の動画を使う場合：</strong>「ファイル選択」ボタンで動画（mp4, mov等）を選択
+      </p>
+      <p>
         動画を開いた直後にポップアップが表示され、「フレームレート(fps)」の入力を求められます（この例では120に設定）。<br>
-        動画下のスライダーで内容を確認し、必要に応じて「解析開始」「解析終了」のフレーム数も入力してください。
+        動画下のスライダーで内容を確認し、必要に応じて「開始」「終了」のフレーム数も入力してください。
       </p>
       <img src="assets/images/tutorial_1.png" alt="動画ファイル選択・初期設定">
     </div>
+
     <div class="step">
       <h2>2. 原点・スケールを設定</h2>
+      
+      <h3>原点設定</h3>
       <p>
-        <b>原点設定：</b>「原点設定」ボタンで原点（例：解析開始フレームでの物体の位置）をクリック<br>
-        <img src="assets/images/tutorial_2.png" alt="原点設定">
-        <div style="margin-bottom: 1.7em;">
-          <b>スケール設定：</b>「スケール設定」ボタンでスケールの始点と終点（例：テープメジャーの0cmと100cm）を順にクリック<br>
-          <span style="font-size:0.97em; color:#555;">※0cmと100cmは、この動画に写っているテープメジャーの例です。お手持ちの動画では、写っている物差しや目盛りの任意の2点を選んでください。</span><br>
-          <span style="font-size:0.97em; color:#2277cc;"><b>※終点をクリックする際、Shiftキーを押しながらクリックすると水平・鉛直制約が適用されます。</b></span><br>
-          <img src="assets/images/tutorial_3.png" alt="スケール設定">
-        </div>
-        <div style="margin-bottom: 1.7em;">
-          <b>スケール長さ入力：</b>始点・終点をクリック後、実際の長さ（例：1.0、単位はm）を数値のみ入力します<br>
-          <img src="assets/images/tutorial_4.png" alt="スケール長さ入力">
-        </div>
+        「原点設定」ボタンをクリックし、原点（例：解析開始フレームでの物体の位置）をクリックして設定します。
       </p>
+      <img src="assets/images/tutorial_2.png" alt="原点設定">
+      
+      <h3>スケール設定</h3>
+      <p>
+        「スケール設定」ボタンをクリックし、スケールの始点と終点（例：テープメジャーの0cmと100cm）を順にクリックします。
+      </p>
+      <div class="tip">
+        <strong>便利な機能：</strong>終点をクリックする際、<strong>Shiftキーを押しながらクリック</strong>すると水平・鉛直制約が適用されます。
+      </div>
+      <img src="assets/images/tutorial_3.png" alt="スケール設定">
+      
+      <h3>スケール長さ入力</h3>
+      <p>
+        始点・終点をクリック後、実際の長さ（例：1.0、単位はm）を数値のみ入力します。
+      </p>
+      <img src="assets/images/tutorial_4.png" alt="スケール長さ入力">
     </div>
+
     <div class="step">
       <h2>3. 解析条件を設定</h2>
-      <p>「フレーム間隔」を入力（例：20）。この例では20フレームごとに追跡します。</p>
+      <p>
+        「フレーム間隔」を入力（例：20）。この例では20フレームごとに追跡します。<br>
+        「物体数」を設定（例：1）。複数の物体を同時に追跡する場合は物体数を増やしてください。
+      </p>
       <img src="assets/images/tutorial_5.png" alt="フレーム間隔設定例">
     </div>
+
     <div class="step">
       <h2>4. 追跡開始</h2>
       <p>
-        「追跡開始」ボタンで物体の位置（例：カップの重心付近）を各フレームでクリックして記録。<br>
+        「追跡開始」ボタンをクリックして物体の位置（例：カップの重心付近）を各フレームでクリックして記録します。<br>
         指定したフレーム間隔ごと（この例では0, 20, 40, 60フレーム目など）に赤点が記録されていきます。
       </p>
-      <div style="background:#f6f6f6; border-left:4px solid #bbb; margin:10px 0 16px 0; padding:8px 16px; font-size:0.97em; color:#555;">
-        <b>注記：</b>追跡モード中は「Undo」ボタンやZキー/Backspaceで直前の点を取り消せます。「1フレーム戻る」ボタンでそのフレームの全物体の点を消し、再入力できます。
+      <div class="tip">
+        <strong>操作ヒント：</strong>追跡モード中は「やり直し」ボタンやZキー/Backspaceで直前の点を取り消せます。「戻る」ボタンでそのフレームの全物体の点を消し、再入力できます。
       </div>
       <img src="assets/images/tutorial_6.png" alt="追跡クリック・記録例">
     </div>
+
     <div class="step">
-      <h2>5. CSV出力でデータ保存</h2>
-      <p>「CSV出力」ボタンで記録データを画面からコピーできます（Excel用タブ区切りまたはCSV形式を選択）</p>
-      <img src="assets/images/tutorial_7.png" alt="CSV出力">
+      <h2>5. データ出力でデータ保存</h2>
+      <p>
+        「データ出力」ボタンをクリックすると、Excel用（タブ区切り）またはCSV形式を選択できます。<br>
+        選択した形式でデータが表示され、画面からコピーしてExcelやGoogleスプレッドシートに貼り付けることができます。
+      </p>
+      <img src="assets/images/tutorial_7.png" alt="データ出力">
     </div>
+
     <ul class="hint">
-      <li>フレームレート（fps）、解析開始フレーム、解析終了フレームの各入力欄には数字のみ入力してください。数字以外を入力すると赤枠でエラー表示されます。</li>
-      <li>動画の拡大・移動には、ブラウザ標準のズーム機能（Ctrl/Cmd+マウスホイール、ピンチズーム）をご利用ください</li>
-      <li>データはローカルのみで処理され、サーバー送信はありません</li>
-      <li>CSV出力は画面からのコピー方式です。iPad Safari等でも利用可能です</li>
-      <li>物体数を2に設定すると、各フレームで2つの物体の位置を順にクリックして記録できます</li>
+      <li><strong>フレームレート（fps）、解析開始フレーム、解析終了フレーム</strong>の各入力欄には数字のみ入力してください。</li>
+      <li><strong>動画の拡大・移動</strong>には、ブラウザ標準のズーム機能（Ctrl/Cmd+マウスホイール、ピンチズーム）をご利用ください</li>
+      <li><strong>データはローカルのみで処理</strong>され、サーバー送信はありません</li>
+      <li><strong>物体数を2以上に設定</strong>すると、各フレームで複数の物体の位置を順にクリックして記録できます</li>
     </ul>
 
     <div class="step">
       <h2>【CSVデータのグラフ化と物理的考察】</h2>
       <p>
-        書き出したCSVファイルはExcelなどで簡単にグラフ化できます。<br>
+        書き出したデータはExcelなどで簡単にグラフ化できます。<br>
         右図は、5つ重ねたアルミカップの落下実験データをExcelでグラフ化し、データの後半（速度が安定した区間）を直線フィットした例です。<br>
         直線にきれいに乗っており、カップが一定速度で落下していることが分かります。
       </p>
       <img src="assets/images/5cups_analysis.png" alt="Excelによるグラフ化・直線フィット例" style="display:block; margin:16px auto 24px auto; max-width:90%; border-radius:6px; box-shadow:0 1px 6px #0002;">
     </div>
   </div>
+  
   <footer style="text-align: center; padding: 15px; margin-top: 30px; font-size: 0.8em; color: #666; border-top: 1px solid #ddd; background: #f9f9f9;">
-    © 2025 一般社団法人 国際物理オリンピック2023記念協会 – CC BY-NC 4.0
+    © 2025 一般社団法人 国際物理オリンピック2023記念協会 – CC BY-NC 4.0<br>
+    <small>最終更新: 2025年8月30日</small>
   </footer>
 </body>
 </html> 

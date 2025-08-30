@@ -46,15 +46,17 @@ h1 {
   min-height: 1em;
   overflow: visible;
   flex-wrap: wrap;
+  /* レスポンシブ対応は各メディアクエリでオーバーライド */
 }
 
 .app-logo {
-  height: 2.0em;
+  height: 5.0em;
   width: auto;
   vertical-align: middle;
   display: inline-block;
   margin-top: -0.2em;
   margin-bottom: -0.2em;
+  /* レスポンシブ対応は各メディアクエリでオーバーライド */
 }
 
 .control-panel {
@@ -68,6 +70,7 @@ h1 {
   padding: 12px;
   gap: 10px;
   overflow-y: auto;
+  /* レスポンシブ対応は各メディアクエリでオーバーライド */
 }
 
 .button-group, .video-controls, .frame-settings {
@@ -78,7 +81,8 @@ h1 {
   justify-content: center;
 }
 
-.button-group button, .video-controls button, .control-section button {
+/* 共通ボタンスタイル */
+.button-group button, .video-controls button, .control-section button, #undoBtn {
   margin: 0 2px;
   padding: 4px 8px;
   font-size: 0.85rem;
@@ -89,22 +93,15 @@ h1 {
   transition: background 0.2s;
 }
 
-.button-group button:hover, .video-controls button:hover, .control-section button:hover {
+.button-group button:hover, .video-controls button:hover, .control-section button:hover, #undoBtn:hover {
   background: #e0e0e0;
 }
 
+/* #undoBtn専用のオーバーライド */
 #undoBtn {
   margin: 0 4px;
   padding: 6px 14px;
   font-size: 1rem;
-  border-radius: 4px;
-  border: 1px solid #bbb;
-  background: #f0f0f0;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-#undoBtn:hover {
-  background: #e0e0e0;
 }
 
 .video-container {
@@ -125,7 +122,7 @@ canvas, video {
   border-radius: 4px;
   background: #000;
   max-width: 98vw;
-  max-height: 70vh;
+  /* max-height制限を削除して縦長動画に対応 */
 }
 
 #guideText, .guide-text {
@@ -157,6 +154,7 @@ canvas, video {
   background: #f8f8f8;
   border-radius: 4px;
   border: 1px solid #e0e0e0;
+  /* レスポンシブ対応は各メディアクエリでオーバーライド */
 }
 
 .frame-info {
@@ -168,6 +166,43 @@ canvas, video {
   text-align: center;
   font-weight: bold;
   font-size: 0.8em;
+}
+
+.quick-guide {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guide-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75em;
+  color: #495057;
+}
+
+.step-number {
+  background: #2277cc;
+  color: white;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.7em;
+  flex-shrink: 0;
+}
+
+.step-text {
+  font-weight: 500;
 }
 
 .license-info {
@@ -270,7 +305,7 @@ input[type="file"] {
 #frameSlider {
   box-sizing: border-box;
   display: block;
-  margin: -10px auto 0 auto;
+  margin: 12px auto 20px auto;
   width: 90%;
   height: 2px;
   background: #444;
@@ -309,7 +344,7 @@ input[type="file"] {
     gap: 5px;
   }
   .app-logo {
-    height: 1.4em;
+    height: 3.5em; /* デスクトップ中画面用 */
   }
   .control-section button {
     font-size: 0.75em;
@@ -331,7 +366,7 @@ input[type="file"] {
     gap: 4px;
   }
   .app-logo {
-    height: 1.3em;
+    height: 3.0em; /* デスクトップ小画面用 */
   }
   .control-section button {
     font-size: 0.7em;
@@ -353,7 +388,7 @@ input[type="file"] {
     gap: 3px;
   }
   .app-logo {
-    height: 1.2em;
+    height: 2.5em; /* タブレット横画面用 */
   }
   .control-section button {
     font-size: 0.65em;
@@ -390,7 +425,7 @@ input[type="file"] {
   }
   
   .app-logo {
-    height: 1.4em;
+    height: 2.0em; /* タブレット縦画面用 */
   }
   
   .control-section {
@@ -447,7 +482,7 @@ input[type="file"] {
   }
   canvas, video {
     max-width: 82vw !important;
-    max-height: 50vh !important;
+    /* max-height制限を削除して縦長動画に対応 */
   }
 }
 
@@ -465,7 +500,7 @@ input[type="file"] {
   }
   canvas, video {
     max-width: 95vw !important;
-    max-height: 72vh !important;
+    /* max-height制限を削除して縦長動画に対応 */
   }
   
   .app-title {
@@ -480,7 +515,7 @@ input[type="file"] {
   }
   
   .app-logo {
-    height: 1.0em;
+    height: 3.0em;
     margin: 0;
   }
   
