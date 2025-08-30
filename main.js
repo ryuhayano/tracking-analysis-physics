@@ -387,6 +387,11 @@ function goToFrame(n) {
   }
 
   video.currentTime = frameToTime(n);
+
+  // ★もし endFrame から戻ろうとしているなら、必ず描画する
+  if (n < endFrame && currentFrame === endFrame) {
+    setTimeout(drawWhenReady, 50);
+  }
 }
 
 // 再生・停止・フレーム送り/戻し（雛形）
