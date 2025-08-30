@@ -56,66 +56,6 @@ objectCount = parseInt(objectCountSelect.value) || 1;
 const undoBtn = document.getElementById('undoBtn');
 undoBtn.style.display = 'none';
 
-// ピンチ/ズーム案内メッセージを追加
-const zoomHint = document.createElement('div');
-zoomHint.id = 'zoomHint';
-zoomHint.style.display = 'none';
-zoomHint.innerHTML = `
-  <div style="
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background: rgba(0,0,0,0.8);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-    z-index: 1000;
-    max-width: 200px;
-    line-height: 1.4;
-  ">
-    <strong>💡 動画を拡大するには:</strong><br>
-    • <strong>Ctrl + マウスホイール</strong> (Windows)<br>
-    • <strong>Cmd + マウスホイール</strong> (Mac)<br>
-    • <strong>ピンチ操作</strong> (タッチデバイス)<br>
-    <small style="opacity: 0.8;">※ ブラウザの標準機能です</small>
-  </div>
-`;
-document.body.appendChild(zoomHint);
-
-// ピンチ/ズーム案内ボタンを追加
-const zoomHintBtn = document.createElement('button');
-zoomHintBtn.id = 'zoomHintBtn';
-zoomHintBtn.textContent = '💡 動画拡大方法';
-zoomHintBtn.style.position = 'fixed';
-zoomHintBtn.style.top = '10px';
-zoomHintBtn.style.right = '10px';
-zoomHintBtn.style.zIndex = '1000';
-zoomHintBtn.style.padding = '8px 12px';
-zoomHintBtn.style.background = '#2277cc';
-zoomHintBtn.style.color = 'white';
-zoomHintBtn.style.border = 'none';
-zoomHintBtn.style.borderRadius = '4px';
-zoomHintBtn.style.cursor = 'pointer';
-zoomHintBtn.style.fontSize = '12px';
-document.body.appendChild(zoomHintBtn);
-
-// 案内表示/非表示の切り替え
-zoomHintBtn.onclick = () => {
-  if (zoomHint.style.display === 'none') {
-    zoomHint.style.display = 'block';
-    zoomHintBtn.textContent = '✕ 閉じる';
-    // 10秒後に自動で非表示
-    setTimeout(() => {
-      zoomHint.style.display = 'none';
-      zoomHintBtn.textContent = '💡 動画拡大方法';
-    }, 10000);
-  } else {
-    zoomHint.style.display = 'none';
-    zoomHintBtn.textContent = '💡 動画拡大方法';
-  }
-};
-
 // ガイドテキスト表示用要素を追加
 let guideDiv = document.getElementById('guideText');
 if (!guideDiv) {
@@ -261,181 +201,70 @@ function resizeCanvasToFit() {
   const oldCanvasWidth = canvas.width;
   const oldCanvasHeight = canvas.height;
   
-  // iPad Safariのズーム状態を検出
-  const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document && window.innerWidth >= 768;
-  const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-  const zoomLevel = window.devicePixelRatio || 1;
-  
-  // iPad Safariの場合の特別処理（アスペクト比記録固定）
-  if (isIPad && isSafari) {
-    // 初回実行時のみアスペクト比を記録
-    if (!window.ipadSafariVideoAspect) {
-      if (video.videoWidth && video.videoHeight) {
-        window.ipadSafariVideoAspect = video.videoWidth / video.videoHeight;
-      }
-    }
-    
-    // 記録されたアスペクト比を使用（なければ動画から取得）
-    const aspect = window.ipadSafariVideoAspect || (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 1);
-    
-    if (aspect) {
-      // 動画のアスペクト比に基づいて固定サイズを決定
-      let w, h;
-      if (aspect < 1.0) { // 縦長動画
-        // 縦長動画は縦を基準にサイズ決定
-        h = 400; // 縦を400pxに固定
-        w = h * aspect; // アスペクト比に応じて幅を計算
-      } else { // 横長動画
-        // 横長動画は横を基準にサイズ決定
-        w = 500; // 横を500pxに固定
-        h = w / aspect; // アスペクト比に応じて高さを計算
-      }
-      
-      // 最小サイズを保証
-      w = Math.max(250, w);
-      h = Math.max(200, h);
-      
-      canvas.width = Math.floor(w);
-      canvas.height = Math.floor(h);
-      
-      // スライダーの調整
-      const slider = document.getElementById('frameSlider');
-      if (slider) {
-        slider.style.width = '350px';
-        slider.style.maxWidth = '90vw';
-        slider.style.margin = '10px auto 0 auto';
-      }
-      
-      // 座標変換の処理（リサイズ時にマーカー位置を調整）
-      if (oldCanvasWidth > 0 && oldCanvasHeight > 0) {
-        const scaleX = canvas.width / oldCanvasWidth;
-        const scaleY = canvas.height / oldCanvasHeight;
-        
-        // スケール点の座標を調整
-        scalePoints.forEach(pt => {
-          pt.x *= scaleX;
-          pt.y *= scaleY;
-        });
-        
-        // 原点の座標を調整
-        if (originPoint) {
-          originPoint.x *= scaleX;
-          originPoint.y *= scaleY;
-        }
-      }
-      
-      // キャンバスサイズ変更後に必ず描画を更新
-      drawOverlay();
-      return;
-    }
-  }
+
   
   const controlPanel = document.querySelector('.control-panel');
-  const controlPanelHeight = controlPanel ? controlPanel.offsetHeight : 0;
+  const controlPanelWidth = controlPanel ? controlPanel.offsetWidth : 280;
   const slider = document.getElementById('frameSlider');
-  const verticalMargin = 48; // 下部余白を縮小
-  const horizontalMargin = 20; // 左右余白を縮小
-  const containerPadding = 16; // video-containerのpadding等を縮小
-  const MIN_CANVAS_WIDTH = 100;
-  const MIN_CANVAS_HEIGHT = 100;
+  const verticalMargin = 0; // 上下余白を完全に削除
+  const horizontalMargin = 0; // 左右余白を完全に削除
+  const containerPadding = 0; // video-containerのpaddingを完全に削除
+  const MIN_CANVAS_WIDTH = 200;
+  const MIN_CANVAS_HEIGHT = 150;
 
-  // スライダーを一時的に最小幅・高さで仮表示
-  if (slider) {
-    slider.style.width = '100px';
-    slider.style.maxWidth = '100vw';
-  }
-
-  // 利用可能な領域を計算（従来通り）
-  let availableHeight = (window.innerHeight - controlPanelHeight - verticalMargin - containerPadding) * 0.95;
-  let availableWidth = window.innerWidth - horizontalMargin * 2 - containerPadding;
+  // 利用可能な領域を計算（UI左動画右レイアウト）
+  let availableHeight = window.innerHeight - verticalMargin * 2 - containerPadding;
+  let availableWidth = window.innerWidth - controlPanelWidth - horizontalMargin * 2 - containerPadding;
 
   let w = availableWidth;
   let h = availableHeight;
-  let sliderHeight = slider ? slider.offsetHeight : 0;
+  let sliderHeight = -10; // スライダーを大幅に下にずらして動画エリアを拡大
 
   if (video.videoWidth && video.videoHeight) {
     const aspect = video.videoWidth / video.videoHeight;
     
-    // 縦長動画の場合の最適化
+    // より積極的にcanvasいっぱいに表示
     if (aspect < 1.0) { // 縦長動画
-      // 高さを優先して最大限活用
-      h = availableHeight - sliderHeight - 16;
+      // 高さを優先して最大限活用（余裕を完全に削除）
+      h = availableHeight - sliderHeight;
       w = h * aspect;
       // 幅がはみ出す場合は幅に合わせて調整
       if (w > availableWidth) {
         w = availableWidth;
         h = w / aspect;
       }
-    } else { // 横長動画
-      // 従来のロジック
-      h = Math.min(availableHeight - sliderHeight - 16, availableWidth / aspect);
-      w = h * aspect;
-      // 幅がはみ出す場合は幅優先
-      if (w > availableWidth) {
-        w = availableWidth;
-        h = w / aspect;
+      // 縦長動画の場合はさらに高さを優先
+      if (h < availableHeight - sliderHeight) {
+        h = availableHeight - sliderHeight;
+        w = h * aspect;
       }
-    }
-    // スライダー分の高さを再考慮
-    if (h + sliderHeight + 16 > availableHeight) {
-      h = availableHeight - sliderHeight - 16;
-      h = Math.max(MIN_CANVAS_HEIGHT, h);
-      w = h * (video.videoWidth / video.videoHeight);
-      w = Math.max(MIN_CANVAS_WIDTH, w);
-      canvas.width = Math.floor(w);
-      canvas.height = Math.floor(h);
-      // .video-containerの幅を取得
-      const container = document.querySelector('.video-container');
-      const containerWidth = container ? container.clientWidth : window.innerWidth;
-      const sliderMargin = 48;
-      const sliderWidth = Math.max(100, Math.min(600, containerWidth - sliderMargin));
-      slider.style.width = sliderWidth + 'px';
-      slider.style.margin = '12px auto 0 auto'; // 中央寄せを強制
+    } else { // 横長動画
+      // 幅を優先して最大限活用
+      w = availableWidth;
+      h = w / aspect;
+      // 高さがはみ出す場合は高さに合わせて調整
+      if (h > availableHeight - sliderHeight) {
+        h = availableHeight - sliderHeight;
+        w = h * aspect;
+      }
     }
   }
 
   // 最小サイズを保証
   w = Math.max(MIN_CANVAS_WIDTH, w);
   h = Math.max(MIN_CANVAS_HEIGHT, h);
-  
-  // iPad Safariの場合は追加の最小サイズ保証
-  if (isIPad && isSafari) {
-    w = Math.max(250, w);
-    h = Math.max(200, h);
-  }
 
   canvas.width = Math.floor(w);
   canvas.height = Math.floor(h);
 
-  // スライダーの幅もcanvasに合わせる
+  // スライダーの幅を調整
   if (slider) {
-    const sliderMaxWidth = 600;
-    const sliderMargin = 48;
-    const sliderWidth = Math.max(100, Math.min(sliderMaxWidth, window.innerWidth - sliderMargin));
+    const sliderWidth = Math.max(200, Math.min(availableWidth - 40, 600));
     slider.style.width = sliderWidth + 'px';
-    slider.style.maxWidth = '100vw';
-    slider.style.margin = '12px auto 0 auto'; // 中央寄せを強制
+    slider.style.margin = '12px auto 0 auto';
   }
 
-  // canvasの高さを決めた後、スライダーの高さを再取得し、必要ならcanvasの高さを再調整
-  if (slider) {
-    let newSliderHeight = slider.offsetHeight;
-    if (h + newSliderHeight + 16 > availableHeight) {
-      h = availableHeight - newSliderHeight - 16;
-      h = Math.max(MIN_CANVAS_HEIGHT, h);
-      w = h * (video.videoWidth / video.videoHeight);
-      w = Math.max(MIN_CANVAS_WIDTH, w);
-      canvas.width = Math.floor(w);
-      canvas.height = Math.floor(h);
-      // .video-containerの幅を取得
-      const container = document.querySelector('.video-container');
-      const containerWidth = container ? container.clientWidth : window.innerWidth;
-      const sliderMargin = 48;
-      const sliderWidth = Math.max(100, Math.min(600, containerWidth - sliderMargin));
-      slider.style.width = sliderWidth + 'px';
-      slider.style.margin = '12px auto 0 auto'; // 中央寄せを強制
-    }
-  }
+
 
   // 座標変換の処理（リサイズ時にマーカー位置を調整）
   if (oldCanvasWidth > 0 && oldCanvasHeight > 0) {
@@ -467,6 +296,12 @@ function resizeCanvasToFit() {
 videoInput.addEventListener('change', function() {
   const file = this.files[0];
   if (file) {
+    // ファイル名を表示
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    console.log('File selected:', file.name);
+    console.log('fileNameDisplay element:', fileNameDisplay);
+    fileNameDisplay.textContent = file.name;
+    
     // 新しいファイル読み込み時にリセット処理を実行
     // 追跡データをクリア
     trackingData = [];
@@ -529,6 +364,19 @@ function goToFrame(n) {
     updateCurrentFrameLabel();
     drawOverlay();
     pendingSeekFrame = null;
+    
+    // 追跡モードで現在フレームが終了フレーム以上の場合、追跡モードを終了
+    if (trackingMode && currentFrame >= endFrame) {
+      // 一度だけ実行するようにフラグを設定
+      if (!window.trackingCompleted) {
+        window.trackingCompleted = true;
+        setTimeout(() => {
+          endTrackingMode();
+          updateGuideText('追跡が完了しました');
+          window.trackingCompleted = false;
+        }, 100);
+      }
+    }
   };
 
   if (typeof video.requestVideoFrameCallback === 'function') {
@@ -547,12 +395,13 @@ document.getElementById('pauseBtn').onclick = () => video.pause();
 
 document.getElementById('nextFrameBtn').onclick = () => {
   video.pause();
+  const frameInterval = parseInt(frameIntervalSelect.value) || 1;
   if (currentFrame < endFrame) {
-    goToFrame(currentFrame + 1);
+    goToFrame(Math.min(currentFrame + frameInterval, endFrame));
   }
 };
 
-// 1フレーム戻るボタンの拡張
+// フレーム間隔に応じた戻るボタンの拡張
 const prevFrameBtn = document.getElementById('prevFrameBtn');
 prevFrameBtn.onclick = () => {
   if (trackingMode) {
@@ -564,8 +413,9 @@ prevFrameBtn.onclick = () => {
     currentObjectIndex = 0;
     updateGuideText(`物体1の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
   }
-  if (currentFrame > startFrame) {
-    goToFrame(currentFrame - 1);
+  const frameInterval = parseInt(frameIntervalSelect.value) || 1;
+  if (currentFrame >= 0) {
+    goToFrame(Math.max(currentFrame - frameInterval, 0));
   }
 };
 
@@ -877,46 +727,12 @@ window.addEventListener('resize', function() {
   }, 100);
 });
 
-// iPad Safariのズーム状態変更を検出（アスペクト比記録固定）
-let lastZoomLevel = window.devicePixelRatio || 1;
+// ウィンドウリサイズ時の処理
 window.addEventListener('resize', function() {
-  const currentZoomLevel = window.devicePixelRatio || 1;
-  const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document && window.innerWidth >= 768;
-  const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-  
-  // iPad Safariでは記録されたアスペクト比を使用
-  if (isIPad && isSafari) {
-    const aspect = window.ipadSafariVideoAspect || (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 1);
-    
-    if (aspect) {
-      let w, h;
-      
-      if (aspect < 1.0) { // 縦長動画
-        h = 400;
-        w = h * aspect;
-      } else { // 横長動画
-        w = 500;
-        h = w / aspect;
-      }
-      
-      w = Math.max(250, w);
-      h = Math.max(200, h);
-      
-      canvas.width = Math.floor(w);
-      canvas.height = Math.floor(h);
-      drawOverlay();
-    }
-    return;
-  }
-  
-  // その他のデバイスでは通常の処理
-  if (Math.abs(currentZoomLevel - lastZoomLevel) > 0.1) {
-    lastZoomLevel = currentZoomLevel;
-    setTimeout(() => {
-      resizeCanvasToFit();
-      drawOverlay();
-    }, 200);
-  }
+  setTimeout(() => {
+    resizeCanvasToFit();
+    drawOverlay();
+  }, 100);
 });
 
 let isDragging = false;
@@ -1085,9 +901,9 @@ function drawOverlay() {
   // スケール線と距離表示
   if (scalePoints.length >= 2) {
     const [p0, p1] = scalePoints;
-    // スケール線を描画
-    ctx.strokeStyle = 'blue';
-    ctx.lineWidth = 1;
+    // スケール線を描画（薄く）
+    ctx.strokeStyle = 'rgba(0, 0, 255, 0.4)';
+    ctx.lineWidth = 0.8;
     ctx.beginPath();
     ctx.moveTo(p0.x, p0.y);
     ctx.lineTo(p1.x, p1.y);
@@ -1098,25 +914,25 @@ function drawOverlay() {
       const midX = (p0.x + p1.x) / 2;
       const midY = (p0.y + p1.y) / 2;
       
-      ctx.fillStyle = 'blue';
-      ctx.font = '12px Arial';
+      ctx.fillStyle = 'rgba(0, 0, 255, 0.6)';
+      ctx.font = '10px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      // 背景を白で塗りつぶして文字を見やすくする
+      // 背景を薄くして文字を見やすくする
       const text = `${scaleLength} m`;
       const textMetrics = ctx.measureText(text);
-      const padding = 2;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      const padding = 1;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
       ctx.fillRect(
         midX - textMetrics.width/2 - padding, 
-        midY - 6 - padding, 
+        midY - 5 - padding, 
         textMetrics.width + padding * 2, 
-        12 + padding * 2
+        10 + padding * 2
       );
       
       // 文字を描画
-      ctx.fillStyle = 'blue';
+      ctx.fillStyle = 'rgba(0, 0, 255, 0.6)';
       ctx.fillText(text, midX, midY);
     }
   }
@@ -1153,11 +969,13 @@ function drawOverlay() {
   ctx.restore();
 }
 
-// クリック座標を取得（ズーム機能は削除されたためシンプルに）
+// クリック座標を取得（キャンバスの実際のサイズと表示サイズの違いを考慮）
 function getCanvasCoords(e) {
   const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
   return { x, y };
 }
 
@@ -1332,26 +1150,83 @@ const frameSlider = document.getElementById('frameSlider');
 
 // スライダー操作で動画のcurrentTimeを変更
 frameSlider.addEventListener('input', function() {
-  currentFrame = parseInt(frameSlider.value) || 0;
+  pendingSeekFrame = parseInt(frameSlider.value) || 0;
+  currentFrame = pendingSeekFrame;
   video.currentTime = currentFrame / videoFps;
   updateCurrentFrameLabel();
+  // 少し遅延してフラグをクリア
+  setTimeout(() => {
+    pendingSeekFrame = null;
+  }, 50);
 });
 
 // 動画の再生位置が変わったらスライダーも追従
 video.addEventListener('timeupdate', function() {
   if (pendingSeekFrame != null) return; // goToFrame 進行中は上書きしない
   const f = Math.floor(video.currentTime * videoFps + 1e-3);
-  if (f !== currentFrame) {
+  
+  // 終了フレームを超えないように制限（再生中のみ）
+  if (f > endFrame && !video.paused) {
+    video.pause();
+    video.currentTime = endFrame / videoFps;
+    // 追跡モードの場合は自動終了
+    if (trackingMode) {
+      endTrackingMode();
+    }
+    return;
+  }
+  
+  // スライダー操作中でない場合のみ更新
+  if (f !== currentFrame && !frameSlider.matches(':active')) {
     currentFrame = f;
     frameSlider.value = currentFrame;
     updateCurrentFrameLabel();
   }
+  
   // 終了フレームに到達したら一時停止のみ（巻き戻しやスライダー操作は妨げない）
   if (currentFrame >= endFrame && !video.paused) {
     video.pause();
     // currentTimeをendFrameに強制セット
     video.currentTime = endFrame / videoFps;
-    currentFrame = endFrame;
+    // 追跡モードの場合は自動終了
+    if (trackingMode) {
+      endTrackingMode();
+    }
+  }
+  // 追跡モードで現在フレームが終了フレーム以上の場合、追跡モードを終了
+  if (trackingMode && currentFrame >= endFrame) {
+    // 一度だけ実行するようにフラグを設定
+    if (!window.trackingCompleted) {
+      window.trackingCompleted = true;
+      setTimeout(() => {
+        endTrackingMode();
+        updateGuideText('追跡が完了しました');
+        window.trackingCompleted = false;
+      }, 100);
+    }
+  }
+});
+
+// 動画が一時停止した時の処理
+video.addEventListener('pause', function() {
+  // 一時停止時に現在フレームを確実に更新
+  const f = Math.floor(video.currentTime * videoFps + 1e-3);
+  if (f !== currentFrame) {
+    currentFrame = f;
+    frameSlider.value = currentFrame;
+    updateCurrentFrameLabel();
+  }
+});
+
+// 動画が終了した時の処理
+video.addEventListener('ended', function() {
+  currentFrame = endFrame;
+  frameSlider.value = currentFrame;
+  updateCurrentFrameLabel();
+  // 追跡モードの場合は自動終了
+  if (trackingMode) {
+    endTrackingMode();
+    updateGuideText('追跡が完了しました');
   }
 });
 
@@ -1467,7 +1342,7 @@ exportCsvBtn.onclick = () => {
   const tabData = csv.replace(/,/g, '\t');
   
   // データ形式を選択
-  const formatChoice = confirm('データ形式を選択してください：\n\n「OK」: Excel用（タブ区切り）\n「キャンセル」: CSV形式\n\n※ Excel用を選択すると、Excelに直接ペーストできます');
+  const formatChoice = confirm('データ形式を選択してください：\n\n「Tab」: Excel用（タブ区切り）\n「CSV」: CSV形式\n\n※ Excel用を選択すると、Excelに直接ペーストできます');
   
   if (formatChoice) {
     // Excel用（タブ区切り）
@@ -1488,7 +1363,7 @@ function drawCoordinateAxes(ctx, cw, ch) {
     return;
   }
   ctx.save();
-  ctx.globalAlpha = 0.6;
+  ctx.globalAlpha = 0.3;
   const [p0, p1] = scalePoints;
   const dx = p1.x - p0.x;
   const dy = p1.y - p0.y;
@@ -1520,8 +1395,8 @@ function drawCoordinateAxes(ctx, cw, ch) {
   ctx.translate(originPoint.x, originPoint.y);
   ctx.rotate(theta);
   // X軸（スケール線の法線方向）
-  ctx.strokeStyle = '#0f0';
-  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+  ctx.lineWidth = 0.8;
   ctx.beginPath();
   ctx.moveTo(-axisLength, 0);
   ctx.lineTo(axisLength, 0);
@@ -1532,14 +1407,14 @@ function drawCoordinateAxes(ctx, cw, ch) {
   ctx.rotate(0);
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(-6, -3);
+  ctx.lineTo(-4, -2);
   ctx.moveTo(0, 0);
-  ctx.lineTo(-6, 3);
+  ctx.lineTo(-4, 2);
   ctx.stroke();
   ctx.restore();
   // Y軸（スケール線の向き）
-  ctx.strokeStyle = '#00f';
-  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+  ctx.lineWidth = 0.8;
   ctx.beginPath();
   ctx.moveTo(0, axisLength);
   ctx.lineTo(0, -axisLength);
@@ -1550,9 +1425,9 @@ function drawCoordinateAxes(ctx, cw, ch) {
   ctx.rotate(-Math.PI / 2);
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(-6, -3);
+  ctx.lineTo(-4, -2);
   ctx.moveTo(0, 0);
-  ctx.lineTo(-6, 3);
+  ctx.lineTo(-4, 2);
   ctx.stroke();
   ctx.restore();
   
@@ -1561,8 +1436,8 @@ function drawCoordinateAxes(ctx, cw, ch) {
   const scale = scaleLength / pixelDist;
   const tickSpacing = scaleLength / 10;
   const pixelTickSpacing = tickSpacing / scale;
-  ctx.strokeStyle = '#0f0';
-  ctx.lineWidth = 0.6;
+  ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)';
+  ctx.lineWidth = 0.4;
   for (let i = -5; i <= 5; i++) {
     if (i === 0) continue;
     const tx = i * pixelTickSpacing;
@@ -1571,22 +1446,22 @@ function drawCoordinateAxes(ctx, cw, ch) {
     ctx.translate(tx, ty);
     ctx.rotate(0);
     ctx.beginPath();
-    ctx.moveTo(0, -4);
-    ctx.lineTo(0, 4);
+    ctx.moveTo(0, -3);
+    ctx.lineTo(0, 3);
     ctx.stroke();
     ctx.restore();
     ctx.save();
     ctx.translate(tx, ty);
-    ctx.fillStyle = '#0f0';
-    ctx.font = '8px Arial';
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
+    ctx.font = '7px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText((i * tickSpacing).toFixed(1), 0, -8);
+    ctx.fillText((i * tickSpacing).toFixed(1), 0, -6);
     ctx.restore();
   }
   // 目盛り（Y軸）
-  ctx.strokeStyle = '#00f';
-  ctx.lineWidth = 0.6;
+  ctx.strokeStyle = 'rgba(0, 0, 255, 0.4)';
+  ctx.lineWidth = 0.4;
   for (let i = -5; i <= 5; i++) {
     if (i === 0) continue;
     const tx = 0;
@@ -1595,18 +1470,18 @@ function drawCoordinateAxes(ctx, cw, ch) {
     ctx.translate(tx, ty);
     ctx.rotate(-Math.PI / 2);
     ctx.beginPath();
-    ctx.moveTo(-4, 0);
-    ctx.lineTo(4, 0);
+    ctx.moveTo(-3, 0);
+    ctx.lineTo(3, 0);
     ctx.stroke();
     ctx.restore();
     ctx.save();
     ctx.translate(tx, ty);
-    ctx.fillStyle = '#00f';
-    ctx.font = '8px Arial';
+    ctx.fillStyle = 'rgba(0, 0, 255, 0.5)';
+    ctx.font = '7px Arial';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     // Y軸の目盛りは負の値を正しく表示
-    ctx.fillText((-i * tickSpacing).toFixed(1), 8, 0);
+    ctx.fillText((-i * tickSpacing).toFixed(1), 6, 0);
     ctx.restore();
   }
   ctx.restore();

@@ -57,8 +57,12 @@ https://ipho2023-commemorative-association.jp/
 
 > This software is provided "as is", without warranty of any kind. Use at your own risk.
 
-## 最新の更新（2025年8月28日）
+## 最新の更新（2025年1月）
 
+- **UIレイアウトの大幅改善**: UIを左側、動画を右側に配置する新しいレイアウトに変更
+- **動画表示エリアの最大化**: 動画がより大きく表示され、解析作業が効率化
+- **レスポンシブデザインの強化**: MacBook Pro、iPad Proなど様々なデバイスでの最適化
+- **ファイル名表示の改善**: 選択したファイル名が視認性良く表示
 - **CSV出力方式の改善**: ファイルダウンロードから画面からのコピー方式に変更（iPad Safari対応）
 - **データ形式選択**: Excel用タブ区切りまたはCSV形式を選択可能
 - **iPad Safari対応**: ファイルダウンロードが困難な環境でもデータ取得が可能
