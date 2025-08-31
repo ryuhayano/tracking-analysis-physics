@@ -5,16 +5,860 @@
  * See https://creativecommons.org/licenses/by-nc/4.0/
  */
 
+// 定数定義
+const CANVAS_CONSTRAINTS = {
+  MAX_WIDTH: 660,
+  MAX_HEIGHT: 480,
+  MIN_WIDTH: 200,
+  MIN_HEIGHT: 150
+};
+
+const UI_CONSTRAINTS = {
+  SLIDER_HEIGHT: 80,
+  SLIDER_MIN_WIDTH: 200,
+  SLIDER_MAX_WIDTH: 600,
+  SLIDER_MARGIN: 40,
+  CONTROL_PANEL_WIDTH: 280
+};
+
+const TIMING = {
+  RESIZE_DELAY: 100,
+  FRAME_UPDATE_DELAY: 50,
+  TRACKING_COMPLETE_DELAY: 100
+};
+
+const COLORS = {
+  OBJECT_COLORS: ['magenta', 'orange', 'cyan', 'lime', 'purple', 'brown'],
+  SCALE_POINT: 'blue',
+  ORIGIN_POINT: 'red',
+  GUIDE_TEXT: '#c00',
+  GUIDE_TEXT_SUCCESS: '#28a745',
+  GUIDE_TEXT_CURRENT: '#856404',
+  GUIDE_TEXT_PENDING: '#495057',
+  BUTTON_HIGHLIGHT: '#ffd',
+  CANCEL_BUTTON: '#f9f9f9',
+  CANCEL_BORDER: '#aaa',
+  CANCEL_TEXT: '#c00'
+};
+
+// イベント管理クラス
+class EventManager {
+  constructor() {
+    this.videoEvents = new VideoEventManager();
+    this.inputEvents = new InputEventManager();
+    this.uiEvents = new UIEventManager();
+    this.windowEvents = new WindowEventManager();
+  }
+  
+  initialize() {
+    this.videoEvents.initialize();
+    this.inputEvents.initialize();
+    this.uiEvents.initialize();
+    this.windowEvents.initialize();
+  }
+}
+
+// 動画関連イベント管理
+class VideoEventManager {
+  initialize() {
+    this.setupVideoEvents();
+    this.setupVideoControlEvents();
+  }
+  
+  setupVideoEvents() {
+    // 動画メタデータ読み込み
+    video.addEventListener('loadedmetadata', this.handleLoadedMetadata.bind(this));
+    
+    // 動画データ読み込み
+    video.addEventListener('loadeddata', this.handleLoadedData.bind(this));
+    
+    // 動画再生制御
+    video.addEventListener('play', this.handlePlay.bind(this));
+    video.addEventListener('pause', this.handlePause.bind(this));
+    video.addEventListener('seeked', this.handleSeeked.bind(this));
+    video.addEventListener('timeupdate', this.handleTimeUpdate.bind(this));
+    video.addEventListener('ended', this.handleEnded.bind(this));
+  }
+  
+  setupVideoControlEvents() {
+    // 再生・停止ボタン
+    document.getElementById('playBtn').onclick = () => video.play();
+    document.getElementById('pauseBtn').onclick = () => video.pause();
+    
+    // フレーム送り・戻しボタン
+    document.getElementById('nextFrameBtn').onclick = this.handleNextFrame.bind(this);
+    document.getElementById('prevFrameBtn').onclick = this.handlePrevFrame.bind(this);
+  }
+  
+  handleLoadedMetadata() {
+    setTimeout(() => resizeCanvasToFit(), TIMING.RESIZE_DELAY);
+  }
+  
+  handleLoadedData() {
+    // FPS設定とフレーム計算の処理
+    this.setupVideoFPS();
+  }
+  
+  handlePlay() {
+    this.startFrameDrawing();
+  }
+  
+  handlePause() {
+    drawOverlay();
+  }
+  
+  handleSeeked() {
+    drawOverlay();
+  }
+  
+  handleTimeUpdate() {
+    const f = Math.floor(video.currentTime * videoFps + 1e-3);
+    
+    // 終了フレームを超えないように制限（再生中のみ）
+    if (f > endFrame && !video.paused) {
+      video.pause();
+      video.currentTime = endFrame / videoFps;
+      if (trackingMode) {
+        endTrackingMode();
+      }
+      return;
+    }
+    
+    // pendingSeekFrameが設定されている場合は、その値と一致するかチェック
+    if (pendingSeekFrame !== null) {
+      if (f === pendingSeekFrame) {
+        currentFrame = f;
+        frameSlider.value = f;
+        updateCurrentFrameLabel();
+        pendingSeekFrame = null;
+      }
+      return;
+    }
+    
+    // スライダー操作中でない場合のみ更新
+    if (f !== currentFrame && !frameSlider.matches(':active')) {
+      currentFrame = f;
+      frameSlider.value = currentFrame;
+      updateCurrentFrameLabel();
+    }
+    
+    // 終了フレームに到達したら一時停止のみ
+    if (currentFrame >= endFrame && !video.paused) {
+      video.pause();
+      video.currentTime = endFrame / videoFps;
+    }
+    
+    // 追跡モードで現在フレームが終了フレーム以上の場合、追跡モードを終了
+    if (trackingMode && currentFrame >= endFrame) {
+      if (!window.trackingCompleted) {
+        window.trackingCompleted = true;
+        setTimeout(() => {
+          endTrackingMode();
+          updateGuideText('追跡が完了しました');
+          window.trackingCompleted = false;
+        }, TIMING.TRACKING_COMPLETE_DELAY);
+      }
+    }
+  }
+  
+  handleEnded() {
+    currentFrame = endFrame;
+    frameSlider.value = currentFrame;
+    updateCurrentFrameLabel();
+    if (trackingMode) {
+      endTrackingMode();
+      updateGuideText('追跡が完了しました');
+      updateQuickGuideStep(5);
+    }
+  }
+  
+  startFrameDrawing() {
+    const drawFrame = () => {
+      if (!video.paused && !video.ended) {
+        drawOverlay();
+        requestAnimationFrame(drawFrame);
+      }
+    };
+    drawFrame();
+  }
+  
+  setupVideoFPS() {
+    if (video.duration > 0) {
+      if (window.isSampleVideo) {
+        videoFps = parseFloat(fpsInput.value) || 120;
+        window.isSampleVideo = false;
+        updateFrameSettings(videoFps);
+      } else {
+        const userFps = prompt('動画のフレームレート（FPS）を入力してください\n\n例：30, 60, 120\n\n※正確な値を入力しないとフレームが飛んで表示されます', '30');
+        
+        if (userFps !== null && !isNaN(userFps) && parseFloat(userFps) > 0) {
+          videoFps = parseFloat(userFps);
+          fpsInput.value = videoFps;
+          updateFrameSettings(videoFps);
+        } else {
+          videoFps = 30;
+          fpsInput.value = videoFps;
+          updateFrameSettings(videoFps);
+        }
+      }
+    } else {
+      videoFps = 30;
+      fpsInput.value = videoFps;
+      updateFrameSettings(videoFps);
+    }
+  }
+  
+  handleNextFrame() {
+    video.pause();
+    const frameInterval = parseInt(frameIntervalSelect.value) || 1;
+    if (currentFrame < endFrame) {
+      goToFrame(Math.min(currentFrame + frameInterval, endFrame));
+    }
+  }
+  
+  handlePrevFrame() {
+    if (trackingMode) {
+      const idx = trackingData.findIndex(d => d.frame === currentFrame);
+      if (idx !== -1) {
+        trackingData.splice(idx, 1);
+        drawOverlay();
+      }
+      currentObjectIndex = 0;
+      updateGuideText(`物体1の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
+    }
+    
+    const frameInterval = parseInt(frameIntervalSelect.value) || 1;
+    const targetFrame = Math.max(startFrame, currentFrame - frameInterval);
+    
+    if (targetFrame !== currentFrame) {
+      goToFrame(targetFrame);
+    }
+  }
+}
+
+// 入力フィールドイベント管理
+class InputEventManager {
+  initialize() {
+    this.setupFPSInputEvents();
+    this.setupFrameInputEvents();
+    this.setupSliderEvents();
+  }
+  
+  setupFPSInputEvents() {
+    let isComposingFps = false;
+    
+    fpsInput.addEventListener('compositionstart', () => { isComposingFps = true; });
+    fpsInput.addEventListener('compositionend', () => {
+      isComposingFps = false;
+      this.normalizeNumberInput(fpsInput);
+    });
+    fpsInput.addEventListener('input', function() {
+      if (!isComposingFps) this.normalizeNumberInput(fpsInput);
+    }.bind(this));
+    
+    fpsInput.addEventListener('change', this.handleFPSChange.bind(this));
+  }
+  
+  setupFrameInputEvents() {
+    let isComposingStart = false;
+    let isComposingEnd = false;
+    
+    // 開始フレーム入力
+    startFrameInput.addEventListener('compositionstart', () => { isComposingStart = true; });
+    startFrameInput.addEventListener('compositionend', () => {
+      isComposingStart = false;
+      this.normalizeNumberInput(startFrameInput);
+    });
+    startFrameInput.addEventListener('input', function() {
+      if (!isComposingStart) this.normalizeNumberInput(startFrameInput);
+    }.bind(this));
+    startFrameInput.addEventListener('input', this.normalizeNumberInput.bind(this, startFrameInput));
+    startFrameInput.addEventListener('change', this.handleStartFrameChange.bind(this));
+    
+    // 終了フレーム入力
+    endFrameInput.addEventListener('compositionstart', () => { isComposingEnd = true; });
+    endFrameInput.addEventListener('compositionend', () => {
+      isComposingEnd = false;
+      this.normalizeNumberInput(endFrameInput);
+    });
+    endFrameInput.addEventListener('input', function() {
+      if (!isComposingEnd) this.normalizeNumberInput(endFrameInput);
+    }.bind(this));
+    endFrameInput.addEventListener('input', this.normalizeNumberInput.bind(this, endFrameInput));
+    endFrameInput.addEventListener('change', this.handleEndFrameChange.bind(this));
+  }
+  
+  setupSliderEvents() {
+    frameSlider.addEventListener('input', this.handleSliderInput.bind(this));
+  }
+  
+  normalizeNumberInput(input) {
+    let before = input.value;
+    let val = this.toHalfWidth(before);
+    
+    if (/[^0-9]/.test(val)) {
+      input.style.border = '2px solid red';
+      input.title = '半角数字のみ入力してください（全角数字は自動変換されます）';
+    }
+    else {
+      input.style.border = '';
+      input.title = '';
+    }
+    
+    val = val.replace(/[^0-9]/g, '');
+    if (before !== val) {
+      input.value = val;
+    }
+  }
+  
+  toHalfWidth(str) {
+    return str.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+  }
+  
+  handleFPSChange() {
+    const newFps = parseFloat(fpsInput.value) || 30;
+    if (newFps > 0) {
+      videoFps = newFps;
+      if (video.duration > 0) {
+        totalFrames = Math.floor(video.duration * videoFps);
+        endFrame = totalFrames - 1;
+        endFrameInput.value = endFrame;
+        frameSlider.max = endFrame;
+        
+        if (currentFrame > endFrame) {
+          currentFrame = endFrame;
+          frameSlider.value = currentFrame;
+          video.currentTime = currentFrame / videoFps;
+        }
+        updateCurrentFrameLabel();
+      }
+    }
+  }
+  
+  handleStartFrameChange() {
+    startFrame = parseInt(startFrameInput.value) || 0;
+    frameSlider.min = startFrame;
+    
+    let moved = false;
+    if (currentFrame < startFrame || currentFrame > endFrame) {
+      if (Math.abs(currentFrame - startFrame) <= Math.abs(currentFrame - endFrame)) {
+        currentFrame = startFrame;
+      } else {
+        currentFrame = endFrame;
+      }
+      frameSlider.value = currentFrame;
+      moved = true;
+    }
+    
+    if (moved) {
+      video.currentTime = currentFrame / videoFps;
+    }
+    updateCurrentFrameLabel();
+  }
+  
+  handleEndFrameChange() {
+    endFrame = parseInt(endFrameInput.value) || (totalFrames - 1);
+    frameSlider.max = endFrame;
+    
+    let moved = false;
+    if (currentFrame < startFrame || currentFrame > endFrame) {
+      if (Math.abs(currentFrame - startFrame) <= Math.abs(currentFrame - endFrame)) {
+        currentFrame = startFrame;
+      } else {
+        currentFrame = endFrame;
+      }
+      frameSlider.value = currentFrame;
+      moved = true;
+    }
+    
+    if (moved) {
+      video.currentTime = currentFrame / videoFps;
+    }
+    updateCurrentFrameLabel();
+  }
+  
+  handleSliderInput() {
+    pendingSeekFrame = parseInt(frameSlider.value) || 0;
+    currentFrame = pendingSeekFrame;
+    video.currentTime = currentFrame / videoFps;
+    updateCurrentFrameLabel();
+    
+    setTimeout(() => {
+      pendingSeekFrame = null;
+    }, TIMING.FRAME_UPDATE_DELAY);
+  }
+}
+
+// UI要素イベント管理
+class UIEventManager {
+  initialize() {
+    this.setupFileInputEvents();
+    this.setupCanvasEvents();
+    this.setupButtonEvents();
+    this.setupSelectEvents();
+  }
+  
+  setupFileInputEvents() {
+    videoInput.addEventListener('change', this.handleFileInput.bind(this));
+  }
+  
+  setupCanvasEvents() {
+    canvas.addEventListener('mousemove', this.handleCanvasMouseMove.bind(this));
+    canvas.addEventListener('click', this.handleCanvasClick.bind(this));
+  }
+  
+  setupButtonEvents() {
+    // 追跡開始ボタン
+    startTrackingBtn.onclick = this.handleStartTracking.bind(this);
+    
+    // 原点設定ボタン
+    setOriginBtn.onclick = this.handleSetOrigin.bind(this);
+    
+    // スケール設定ボタン
+    setScaleBtn.onclick = this.handleSetScale.bind(this);
+    
+    // データ出力ボタン
+    exportCsvBtn.onclick = this.handleExportCSV.bind(this);
+    
+    // やり直しボタン
+    resetBtn.onclick = this.handleReset.bind(this);
+    
+    // Undoボタン
+    undoBtn.onclick = this.handleUndo.bind(this);
+  }
+  
+  setupSelectEvents() {
+    objectCountSelect.addEventListener('change', () => {
+      objectCount = parseInt(objectCountSelect.value) || 1;
+    });
+    
+    frameIntervalSelect.addEventListener('change', () => {
+      frameInterval = parseInt(frameIntervalSelect.value) || 1;
+    });
+    
+    // 初期値を設定
+    frameInterval = parseInt(frameIntervalSelect.value) || 1;
+    objectCount = parseInt(objectCountSelect.value) || 1;
+  }
+  
+  handleFileInput() {
+    const file = this.files[0];
+    if (file) {
+      // ファイル名を表示
+      const fileNameDisplay = document.getElementById('fileNameDisplay');
+      fileNameDisplay.textContent = file.name;
+      
+      // クイックガイドのステップを更新
+      updateQuickGuideStep(2);
+      
+      // 新しいファイル読み込み時にリセット処理を実行
+      this.resetTrackingData();
+      
+      const url = URL.createObjectURL(file);
+      video.src = url;
+      video.controls = false;
+      
+      // 動画の読み込みが完了したらリサイズを実行
+      video.addEventListener('loadeddata', function() {
+        setTimeout(() => {
+          resizeCanvasToFit();
+        }, TIMING.RESIZE_DELAY);
+      }, { once: true });
+    }
+  }
+  
+  resetTrackingData() {
+    // 追跡データをクリア
+    trackingData = [];
+    // スケール・原点設定をクリア
+    scalePoints = [];
+    originPoint = null;
+    scaleLength = null;
+    // 追跡モードを終了
+    if (trackingMode) {
+      endTrackingMode();
+    }
+    // 設定モードをクリア
+    mode = null;
+    updateGuideText('');
+    disableVideoControls(false);
+    // ボタンのハイライトを解除
+    setScaleBtn.style.background = '';
+    setOriginBtn.style.background = '';
+    // キャンセルボタンと案内を削除
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) cancelBtn.remove();
+    const cancelHint = document.getElementById('cancelHint');
+    if (cancelHint) cancelHint.remove();
+  }
+  
+  handleCanvasMouseMove(e) {
+    if (mode === 'set-scale' || mode === 'set-origin') {
+      canvas.style.cursor = 'crosshair';
+    } else if (trackingMode) {
+      canvas.style.cursor = 'crosshair';
+    } else {
+      canvas.style.cursor = 'default';
+    }
+  }
+  
+  handleCanvasClick(e) {
+    let { x, y } = this.getCanvasCoords(e);
+    
+    if (mode) {
+      this.handleModeClick(x, y, e);
+      return;
+    }
+    
+    // 追跡モード時のクリック処理
+    if (trackingMode) {
+      this.handleTrackingClick(x, y);
+    }
+  }
+  
+  getCanvasCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    return { x, y };
+  }
+  
+  handleModeClick(x, y, e) {
+    if (mode === 'set-scale') {
+      this.handleScaleClick(x, y, e);
+    } else if (mode === 'set-origin') {
+      this.handleOriginClick(x, y);
+    }
+  }
+  
+  handleScaleClick(x, y, e) {
+    // 始点の場合
+    if (scalePoints.length === 0) {
+      scalePoints.push({ x, y });
+      drawOverlay();
+      updateGuideText('スケール設定: 2点目（終点）をクリックしてください（Shiftキーで水平・鉛直制約）');
+      return;
+    }
+    
+    // 2点目（終点）の場合、Shiftキーが押されているかチェック
+    if (e.shiftKey) {
+      const startPoint = scalePoints[0];
+      const dx = x - startPoint.x;
+      const dy = y - startPoint.y;
+      
+      // 水平方向と鉛直方向の距離を比較して、より近い方向に制約
+      if (Math.abs(dx) > Math.abs(dy)) {
+        y = startPoint.y; // 水平方向に制約
+      } else {
+        x = startPoint.x; // 鉛直方向に制約
+      }
+    }
+    
+    scalePoints.push({ x, y });
+    drawOverlay();
+    
+    // 2点目がクリックされた場合のみダイアログを表示
+    setTimeout(() => {
+      const proceed = confirm('スケール設定を続行しますか？\n\n「OK」: 距離を入力して設定完了\n「キャンセル」: 設定をキャンセル');
+      if (proceed) {
+        const len = prompt('2点間の実際の長さをメートル単位で入力してください');
+        if (len && !isNaN(len)) {
+          scaleLength = parseFloat(len);
+          drawOverlay();
+          updateQuickGuideStep(4);
+        } else if (len !== null) {
+          alert('有効な数値を入力してください');
+          scaleLength = null;
+        } else {
+          scaleLength = null;
+          scalePoints = [];
+          drawOverlay();
+        }
+      } else {
+        scaleLength = null;
+        scalePoints = [];
+        drawOverlay();
+      }
+      mode = null;
+      updateGuideText('');
+      disableVideoControls(false);
+      setScaleBtn.style.background = '';
+      this.removeCancelElements();
+    }, 50);
+  }
+  
+  handleOriginClick(x, y) {
+    originPoint = { x, y };
+    mode = null;
+    updateGuideText('');
+    disableVideoControls(false);
+    setOriginBtn.style.background = '';
+    this.removeCancelElements();
+    drawOverlay();
+    updateQuickGuideStep(3);
+  }
+  
+  handleTrackingClick(x, y) {
+    const phys = getPhysicalCoords(x, y);
+    if (phys) {
+      if (currentFrame > endFrame) {
+        endTrackingMode();
+        return;
+      }
+      
+      let frameData = trackingData.find(d => d.frame === currentFrame);
+      if (!frameData) {
+        frameData = { frame: currentFrame, positions: Array(objectCount).fill(null) };
+        trackingData.push(frameData);
+      }
+      
+      frameData.positions[currentObjectIndex] = { x: phys.x, y: phys.y };
+      drawOverlay();
+      updateUndoBtnVisibility();
+      
+      currentObjectIndex++;
+      if (currentObjectIndex >= objectCount) {
+        currentObjectIndex = 0;
+        goToFrame(currentFrame + frameInterval);
+        updateUndoBtnVisibility();
+      }
+      
+      if (trackingMode) {
+        if (currentFrame > endFrame) {
+          endTrackingMode();
+        } else {
+          const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+          updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
+        }
+      }
+    } else {
+      alert('スケール・原点・スケール長が未設定です');
+    }
+  }
+  
+  handleStartTracking() {
+    // 原点・スケール未設定時は警告
+    if (scalePoints.length < 2 || !scaleLength || !originPoint) {
+      alert('原点とスケールが未設定です。先に原点・スケールを設定してください。');
+      return;
+    }
+    
+    trackingMode = !trackingMode;
+    if (trackingMode) {
+      currentObjectIndex = 0;
+      const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+      updateGuideText(`物体${objectCount === 1 ? '' : '1'}の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[0]);
+      startTrackingBtn.style.background = COLORS.BUTTON_HIGHLIGHT;
+      objectCountSelect.disabled = true;
+      if (frameIntervalSelect) frameIntervalSelect.disabled = true;
+      
+      updateQuickGuideStep(4);
+    } else {
+      endTrackingMode();
+    }
+    updateUndoBtnVisibility();
+  }
+  
+  handleSetOrigin() {
+    if (mode === 'set-origin') {
+      // 既に設定中の場合はキャンセル
+      mode = null;
+      updateGuideText('');
+      disableVideoControls(false);
+      setOriginBtn.style.background = '';
+      this.removeCancelElements();
+      drawOverlay();
+    } else {
+      // 新規設定開始
+      mode = 'set-origin';
+      updateGuideText('原点設定: 原点となる点をクリックしてください');
+      disableVideoControls(true);
+      setOriginBtn.style.background = COLORS.BUTTON_HIGHLIGHT;
+      this.addCancelElements();
+    }
+  }
+  
+  handleSetScale() {
+    if (mode === 'set-scale') {
+      // 既に設定中の場合はキャンセル
+      mode = null;
+      scalePoints = [];
+      updateGuideText('');
+      disableVideoControls(false);
+      setScaleBtn.style.background = '';
+      this.removeCancelElements();
+      drawOverlay();
+    } else {
+      // 新規設定開始
+      mode = 'set-scale';
+      scalePoints = [];
+      updateGuideText('スケール設定: 始点と終点をクリックしてください（終点でShiftキーで水平・鉛直制約）');
+      disableVideoControls(true);
+      setScaleBtn.style.background = COLORS.BUTTON_HIGHLIGHT;
+      this.addCancelElements();
+    }
+  }
+  
+  handleExportCSV() {
+    if (!trackingData.length) {
+      alert('記録データがありません');
+      return;
+    }
+    
+    updateQuickGuideStep(5);
+    
+    const fps = parseFloat(fpsInput.value) || 30;
+    let header = 'time(s)';
+    for (let i = 0; i < objectCount; i++) {
+      header += `,x${i+1}(m),y${i+1}(m)`;
+    }
+    header += '\n';
+    
+    let csv = header;
+    const sorted = trackingData.slice().sort((a, b) => a.frame - b.frame);
+    sorted.forEach(d => {
+      const t = ((d.frame - startFrame) / fps).toFixed(3);
+      let row = [t];
+      for (let i = 0; i < objectCount; i++) {
+        const pos = d.positions && d.positions[i];
+        if (pos) {
+          row.push(pos.x.toFixed(3), pos.y.toFixed(3));
+        } else {
+          row.push('', '');
+        }
+      }
+      csv += row.join(',') + '\n';
+    });
+    
+    const tabData = csv.replace(/,/g, '\t');
+    showFormatSelectionDialog(tabData, csv);
+  }
+  
+  handleReset() {
+    if (confirm('本当に最初からやり直しますか？（未保存のデータは失われます）')) {
+      window.location.reload();
+    }
+  }
+  
+  handleUndo() {
+    if (!trackingMode) return;
+    
+    let frameData = trackingData.find(d => d.frame === currentFrame);
+    if (frameData) {
+      if (currentObjectIndex > 0) {
+        frameData.positions[currentObjectIndex - 1] = null;
+        currentObjectIndex--;
+        drawOverlay();
+        const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+        updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
+        return;
+      }
+    }
+    
+    if (currentFrame > startFrame) {
+      const prevFrame = Math.max(startFrame, currentFrame - frameInterval);
+      goToFrame(prevFrame);
+      const idx = trackingData.findIndex(d => d.frame === prevFrame);
+      if (idx !== -1) {
+        trackingData.splice(idx, 1);
+      }
+      currentObjectIndex = 0;
+      const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+      updateGuideText(`物体1の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[0]);
+    }
+  }
+  
+  addCancelElements() {
+    if (!document.getElementById('cancelBtn')) {
+      const cancelBtn = createCancelButton(() => {
+        mode = null;
+        scalePoints = [];
+        updateGuideText('');
+        disableVideoControls(false);
+        setScaleBtn.style.background = '';
+        setOriginBtn.style.background = '';
+        this.removeCancelElements();
+        drawOverlay();
+      });
+      guideDiv.appendChild(cancelBtn);
+    }
+    
+    if (!document.getElementById('cancelHint')) {
+      const hint = createCancelHint();
+      guideDiv.appendChild(hint);
+    }
+  }
+  
+  removeCancelElements() {
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) cancelBtn.remove();
+    const cancelHint = document.getElementById('cancelHint');
+    if (cancelHint) cancelHint.remove();
+  }
+}
+
+// ウィンドウイベント管理
+class WindowEventManager {
+  initialize() {
+    this.setupKeyboardEvents();
+    this.setupResizeEvents();
+  }
+  
+  setupKeyboardEvents() {
+    window.addEventListener('keydown', this.handleKeyDown.bind(this));
+  }
+  
+  setupResizeEvents() {
+    window.addEventListener('resize', this.handleResize.bind(this));
+  }
+  
+  handleKeyDown(e) {
+    // ESCキーで設定をキャンセル
+    if (e.key === 'Escape' && (mode === 'set-scale' || mode === 'set-origin')) {
+      e.preventDefault();
+      mode = null;
+      scalePoints = [];
+      updateGuideText('');
+      disableVideoControls(false);
+      setScaleBtn.style.background = '';
+      setOriginBtn.style.background = '';
+      
+      const cancelBtn = document.getElementById('cancelBtn');
+      if (cancelBtn) cancelBtn.remove();
+      const cancelHint = document.getElementById('cancelHint');
+      if (cancelHint) cancelHint.remove();
+      
+      drawOverlay();
+      return;
+    }
+    
+    // トラッキングモード中のUndo
+    if (!trackingMode) return;
+    if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') {
+      e.preventDefault();
+      undoBtn.click();
+    }
+  }
+  
+  handleResize() {
+    clearTimeout(window.resizeTimeout);
+    window.resizeTimeout = setTimeout(() => {
+      resizeCanvasToFit();
+      drawOverlay();
+    }, TIMING.RESIZE_DELAY);
+  }
+}
+
 // ファイル選択時に動画を読み込む
 const videoInput = document.getElementById('videoInput');
 const video = document.getElementById('video');
 const canvas = document.getElementById('videoCanvas');
-// const fileNameSpan = document.getElementById('fileName'); // 不要なので削除
 
 let scaleLength = null; // スケールの実長（m）
 
-const MAX_CANVAS_WIDTH = 660;
-const MAX_CANVAS_HEIGHT = 480;
+
 
 let fps = 30; // CSV出力時のみ使用
 let videoFps = 30; // 動画制御用（固定値、UIからは変更不可、デフォルト30）
@@ -28,14 +872,12 @@ const startFrameInput = document.getElementById('startFrameInput');
 const endFrameInput = document.getElementById('endFrameInput');
 const currentFrameLabel = document.getElementById('currentFrameLabel');
 
-// videoFpsInputは使用しないため削除
-
 let trackingMode = false;
 let trackingData = []; // [{frame, positions: [{x, y}, ...]}]
 let currentObjectIndex = 0; // 今どの物体のクリック待ちか
 
 // 物体ごとの色（最大2個、拡張可）
-const objectColors = ['magenta', 'orange', 'cyan', 'lime', 'purple', 'brown'];
+const objectColors = COLORS.OBJECT_COLORS;
 
 // --- 物体数・追跡開始ボタン ---
 const objectCountSelect = document.getElementById('objectCountSelect');
@@ -86,6 +928,57 @@ function updateGuideText(text, color) {
 // クイックガイドのステップ管理
 let currentStep = 0; // 0: ファイル選択前, 1: ファイル選択済み, 2: 原点設定済み, 3: スケール設定済み, 4: 追跡完了
 
+// キャンセルボタン作成の共通関数
+function createCancelButton(onCancel) {
+  const cancelBtn = document.createElement('button');
+  cancelBtn.id = 'cancelBtn';
+  cancelBtn.textContent = 'キャンセル';
+        cancelBtn.style.marginLeft = '8px';
+      cancelBtn.style.fontSize = '0.95em';
+      cancelBtn.style.background = COLORS.CANCEL_BUTTON;
+      cancelBtn.style.border = `1px solid ${COLORS.CANCEL_BORDER}`;
+      cancelBtn.style.color = COLORS.CANCEL_TEXT;
+      cancelBtn.style.fontWeight = 'normal';
+      cancelBtn.style.borderRadius = '4px';
+      cancelBtn.style.padding = '1px 8px';
+      cancelBtn.style.cursor = 'pointer';
+  cancelBtn.onclick = onCancel;
+  return cancelBtn;
+}
+
+// キャンセル案内作成の共通関数
+function createCancelHint() {
+  const hint = document.createElement('span');
+  hint.id = 'cancelHint';
+  hint.textContent = '（ESCキーでもキャンセル）';
+  hint.style.marginLeft = '8px';
+  hint.style.fontSize = '0.92em';
+  hint.style.color = '#888';
+  return hint;
+}
+
+// フレーム数計算とUI更新の共通関数
+function updateFrameSettings(fps, skipPrompt = false) {
+  if (video.duration > 0) {
+    // フレーム数を計算
+    totalFrames = Math.floor(video.duration * fps);
+    currentFrame = 0;
+    startFrame = 0;
+    endFrame = totalFrames - 1;
+    
+    // UI要素を更新
+    startFrameInput.value = startFrame;
+    endFrameInput.value = endFrame;
+    frameSlider.min = startFrame;
+    frameSlider.max = endFrame;
+    frameSlider.value = 0;
+    
+    // 状態を更新
+    updateCurrentFrameLabel();
+    drawOverlay();
+  }
+}
+
 function updateQuickGuideStep(step) {
   currentStep = step;
   const guideSteps = document.querySelectorAll('.guide-step');
@@ -97,18 +990,18 @@ function updateQuickGuideStep(step) {
     // ステップの状態を判定（indexは0ベース、stepは1ベース）
     if (index < step - 1) {
       // 完了したステップ（緑）
-      stepNumber.style.background = '#28a745';
-      stepText.style.color = '#28a745';
+      stepNumber.style.background = COLORS.GUIDE_TEXT_SUCCESS;
+      stepText.style.color = COLORS.GUIDE_TEXT_SUCCESS;
       stepText.style.fontWeight = 'bold';
     } else if (index === step - 1) {
       // 現在のステップ（黄）
       stepNumber.style.background = '#ffc107';
-      stepText.style.color = '#856404';
+      stepText.style.color = COLORS.GUIDE_TEXT_CURRENT;
       stepText.style.fontWeight = 'bold';
     } else {
       // 未完了のステップ（青）
       stepNumber.style.background = '#2277cc';
-      stepText.style.color = '#495057';
+      stepText.style.color = COLORS.GUIDE_TEXT_PENDING;
       stepText.style.fontWeight = '500';
     }
   });
@@ -205,6 +1098,12 @@ function endTrackingMode() {
   objectCountSelect.disabled = false;
   if (frameIntervalSelect) frameIntervalSelect.disabled = false;
   updateUndoBtnVisibility();
+  
+  // 追跡完了時はクイックガイドのステップを5（データ出力）に更新
+  // 現在フレームが終了フレーム以上、または追跡データが存在する場合
+  if (currentFrame >= endFrame || trackingData.length > 0) {
+    updateQuickGuideStep(5);
+  }
 }
 
 startTrackingBtn.onclick = () => {
@@ -230,99 +1129,104 @@ startTrackingBtn.onclick = () => {
   updateUndoBtnVisibility();
 };
 
-function resizeCanvasToFit() {
-  
-  // リサイズ前のcanvasサイズを保存
-  const oldCanvasWidth = canvas.width;
-  const oldCanvasHeight = canvas.height;
-  
+// 利用可能な領域を計算
+function calculateAvailableSpace() {
   const controlPanel = document.querySelector('.control-panel');
-  const controlPanelWidth = controlPanel ? controlPanel.offsetWidth : 280;
+  const controlPanelWidth = controlPanel ? controlPanel.offsetWidth : UI_CONSTRAINTS.CONTROL_PANEL_WIDTH;
   
-  const slider = document.getElementById('frameSlider');
-  const verticalMargin = 0; // 上下余白を完全に削除
-  const horizontalMargin = 0; // 左右余白を完全に削除
-  const containerPadding = 0; // video-containerのpaddingを完全に削除
-  const MIN_CANVAS_WIDTH = 200;
-  const MIN_CANVAS_HEIGHT = 150;
-
-  // 利用可能な領域を計算（UI左動画右レイアウト）
   const videoContainer = document.querySelector('.video-container');
-  const actualVideoContainerHeight = videoContainer ? videoContainer.offsetHeight : window.innerHeight;
-  const actualVideoContainerWidth = videoContainer ? videoContainer.offsetWidth : window.innerWidth - controlPanelWidth;
+  const actualHeight = videoContainer ? videoContainer.offsetHeight : window.innerHeight;
+  const actualWidth = videoContainer ? videoContainer.offsetWidth : window.innerWidth - controlPanelWidth;
   
-  let availableHeight = actualVideoContainerHeight - verticalMargin * 2 - containerPadding;
-  let availableWidth = actualVideoContainerWidth - horizontalMargin * 2 - containerPadding;
+  return {
+    width: actualWidth,
+    height: actualHeight - UI_CONSTRAINTS.SLIDER_HEIGHT
+  };
+}
 
-  let w = availableWidth;
-  let h = availableHeight;
-  let sliderHeight = 80; // スライダーとその周辺の余白を考慮（操作しやすさのため増加）
-
-  if (video.videoWidth && video.videoHeight) {
-    const aspect = video.videoWidth / video.videoHeight;
-    
-    // より積極的にcanvasいっぱいに表示
-    if (aspect < 1.0) { // 縦長動画
-      // 縦長動画の場合、高さ制限のみを考慮
-      h = availableHeight - sliderHeight;
-      w = h * aspect;
-      // 幅が利用可能な幅を超える場合は調整
-      if (w > availableWidth) {
-        w = availableWidth;
-        h = w / aspect;
-      }
-    } else { // 横長動画
-      // 幅を優先して最大限活用
+// アスペクト比に基づくサイズ計算
+function calculateCanvasSize(availableWidth, availableHeight, videoWidth, videoHeight) {
+  if (!videoWidth || !videoHeight) {
+    return { width: availableWidth, height: availableHeight };
+  }
+  
+  const aspect = videoWidth / videoHeight;
+  
+  if (aspect < 1.0) { // 縦長動画
+    let h = availableHeight;
+    let w = h * aspect;
+    if (w > availableWidth) {
       w = availableWidth;
       h = w / aspect;
-      // 高さがはみ出す場合は高さに合わせて調整
-      if (h > availableHeight - sliderHeight) {
-        h = availableHeight - sliderHeight;
-        w = h * aspect;
-      }
     }
+    return { width: w, height: h };
+  } else { // 横長動画
+    let w = availableWidth;
+    let h = w / aspect;
+    if (h > availableHeight) {
+      h = availableHeight;
+      w = h / aspect;
+    }
+    return { width: w, height: h };
   }
+}
 
-  // 最小サイズを保証
-  // 最小サイズを保証
-  w = Math.max(MIN_CANVAS_WIDTH, w);
-  h = Math.max(MIN_CANVAS_HEIGHT, h);
-
-  canvas.width = Math.floor(w);
-  canvas.height = Math.floor(h);
-
-  // スライダーの幅を調整
-  if (slider) {
-    const sliderWidth = Math.max(200, Math.min(availableWidth - 40, 600));
-    slider.style.width = sliderWidth + 'px';
-    slider.style.margin = '12px auto 0 auto';
-  }
-
-
-
-  // 座標変換の処理（リサイズ時にマーカー位置を調整）
-  if (oldCanvasWidth > 0 && oldCanvasHeight > 0) {
-    const scaleX = canvas.width / oldCanvasWidth;
-    const scaleY = canvas.height / oldCanvasHeight;
+// 座標の調整
+function adjustCoordinates(oldWidth, oldHeight, newWidth, newHeight) {
+  if (oldWidth > 0 && oldHeight > 0) {
+    const scaleX = newWidth / oldWidth;
+    const scaleY = newHeight / oldHeight;
     
-    // スケール点の座標を調整
     scalePoints.forEach(pt => {
       pt.x *= scaleX;
       pt.y *= scaleY;
     });
     
-    // 原点の座標を調整
     if (originPoint) {
       originPoint.x *= scaleX;
       originPoint.y *= scaleY;
     }
   }
+}
+
+// スライダーの調整
+function adjustSliderSize(availableWidth) {
+  const slider = document.getElementById('frameSlider');
+  if (slider) {
+    const sliderWidth = Math.max(
+      UI_CONSTRAINTS.SLIDER_MIN_WIDTH, 
+      Math.min(availableWidth - UI_CONSTRAINTS.SLIDER_MARGIN, UI_CONSTRAINTS.SLIDER_MAX_WIDTH)
+    );
+    slider.style.width = sliderWidth + 'px';
+    slider.style.margin = '12px auto 0 auto';
+  }
+}
+
+function resizeCanvasToFit() {
+  // リサイズ前のcanvasサイズを保存
+  const oldCanvasWidth = canvas.width;
+  const oldCanvasHeight = canvas.height;
   
-  // キャンバスサイズ変更後に必ず描画を更新
+  // 利用可能な領域を計算
+  const available = calculateAvailableSpace();
+  
+  // アスペクト比に基づくサイズ計算
+  const size = calculateCanvasSize(available.width, available.height, video.videoWidth, video.videoHeight);
+  
+  // 最小サイズを保証
+  const finalWidth = Math.max(CANVAS_CONSTRAINTS.MIN_WIDTH, size.width);
+  const finalHeight = Math.max(CANVAS_CONSTRAINTS.MIN_HEIGHT, size.height);
+  
+  // canvasサイズを設定
+  canvas.width = Math.floor(finalWidth);
+  canvas.height = Math.floor(finalHeight);
+  
+  // スライダーと座標を調整
+  adjustSliderSize(available.width);
+  adjustCoordinates(oldCanvasWidth, oldCanvasHeight, canvas.width, canvas.height);
+  
+  // 描画を更新
   drawOverlay();
-  
-
-
 }
 
 videoInput.addEventListener('change', function() {
@@ -368,7 +1272,7 @@ videoInput.addEventListener('change', function() {
     video.addEventListener('loadeddata', function() {
       setTimeout(() => {
         resizeCanvasToFit();
-      }, 100);
+      }, TIMING.RESIZE_DELAY);
     }, { once: true });
   }
 });
@@ -393,11 +1297,13 @@ function goToFrame(n) {
 
   const drawWhenReady = () => {
     // ここで初めて描画＆状態更新
-    currentFrame = pendingSeekFrame;
-    frameSlider.value = currentFrame;
-    updateCurrentFrameLabel();
+    if (pendingSeekFrame !== null) {
+      currentFrame = pendingSeekFrame;
+      frameSlider.value = currentFrame;
+      updateCurrentFrameLabel();
+      pendingSeekFrame = null;
+    }
     drawOverlay();
-    pendingSeekFrame = null;
     
     // 追跡モードで現在フレームが終了フレーム以上の場合、追跡モードを終了
     if (trackingMode && currentFrame >= endFrame) {
@@ -412,7 +1318,7 @@ function goToFrame(n) {
           updateQuickGuideStep(5);
           
           window.trackingCompleted = false;
-        }, 100);
+        }, TIMING.TRACKING_COMPLETE_DELAY);
       }
     }
   };
@@ -428,186 +1334,18 @@ function goToFrame(n) {
 
   // ★もし endFrame から戻ろうとしているなら、必ず描画する
   if (n < endFrame && currentFrame === endFrame) {
-    setTimeout(drawWhenReady, 50);
+    setTimeout(drawWhenReady, TIMING.FRAME_UPDATE_DELAY);
   }
 }
 
-// 再生・停止・フレーム送り/戻し（雛形）
-document.getElementById('playBtn').onclick = () => video.play();
-document.getElementById('pauseBtn').onclick = () => video.pause();
+// 再生・停止・フレーム送り/戻しはVideoEventManagerで管理
 
-document.getElementById('nextFrameBtn').onclick = () => {
-  video.pause();
-  const frameInterval = parseInt(frameIntervalSelect.value) || 1;
-  if (currentFrame < endFrame) {
-    goToFrame(Math.min(currentFrame + frameInterval, endFrame));
-  }
-};
-
-// フレーム間隔に応じた戻るボタンの拡張
-const prevFrameBtn = document.getElementById('prevFrameBtn');
-prevFrameBtn.onclick = () => {
-  if (trackingMode) {
-    const idx = trackingData.findIndex(d => d.frame === currentFrame);
-    if (idx !== -1) {
-      trackingData.splice(idx, 1);
-      drawOverlay();
-    }
-    currentObjectIndex = 0;
-    updateGuideText(`物体1の位置をクリックしてください（${objectCount}物体）`, objectColors[0]);
-  }
-  const frameInterval = parseInt(frameIntervalSelect.value) || 1;
-  if (currentFrame >= 0) {
-    goToFrame(Math.max(currentFrame - frameInterval, 0));
-  }
-};
-
-// --- スケール・原点・回転設定用 追加コード ---
+// --- スケール・原点・回転設定用 変数定義 ---
 let mode = null; // 'set-scale' | 'set-origin' | null
 let scalePoints = [];
 let originPoint = null;
 
-// スケール設定ボタン
-const setScaleBtn = document.getElementById('setScaleBtn');
-setScaleBtn.onclick = () => {
-  
-  if (mode === 'set-scale') {
-    // 既に設定中の場合はキャンセル
-    mode = null;
-    scalePoints = [];
-    updateGuideText('');
-    disableVideoControls(false);
-    // ボタンのハイライトを解除
-    setScaleBtn.style.background = '';
-    // キャンセルボタンと案内を削除
-    const cancelBtn = document.getElementById('cancelBtn');
-    if (cancelBtn) cancelBtn.remove();
-    const cancelHint = document.getElementById('cancelHint');
-    if (cancelHint) cancelHint.remove();
-    // 画面を再描画して始点・終点・直線を消去
-    drawOverlay();
-  } else {
-    // 新規設定開始
-    mode = 'set-scale';
-    scalePoints = []; // 強制的にクリア
-
-    updateGuideText('スケール設定: 始点と終点をクリックしてください（終点でShiftキーで水平・鉛直制約）');
-    disableVideoControls(true);
-    // ボタンをハイライト表示
-    setScaleBtn.style.background = '#ffd';
-    // キャンセルボタンをガイドテキストに追加
-    if (!document.getElementById('cancelBtn')) {
-      const cancelBtn = document.createElement('button');
-      cancelBtn.id = 'cancelBtn';
-      cancelBtn.textContent = 'キャンセル';
-      cancelBtn.style.marginLeft = '8px';
-      cancelBtn.style.fontSize = '0.95em';
-      cancelBtn.style.background = '#f9f9f9';
-      cancelBtn.style.border = '1px solid #aaa';
-      cancelBtn.style.color = '#c00';
-      cancelBtn.style.fontWeight = 'normal';
-      cancelBtn.style.borderRadius = '4px';
-      cancelBtn.style.padding = '1px 8px';
-      cancelBtn.style.cursor = 'pointer';
-      cancelBtn.onclick = () => {
-        // キャンセル処理
-        mode = null;
-        scalePoints = [];
-        updateGuideText('');
-        disableVideoControls(false);
-        // ボタンのハイライトを解除
-        setScaleBtn.style.background = '';
-        // キャンセルボタンと案内を削除
-        const cancelBtn = document.getElementById('cancelBtn');
-        if (cancelBtn) cancelBtn.remove();
-        const cancelHint = document.getElementById('cancelHint');
-        if (cancelHint) cancelHint.remove();
-        // 画面を再描画
-        drawOverlay();
-      };
-      guideDiv.appendChild(cancelBtn);
-    }
-    // ガイドテキストにキャンセル案内を追加
-    if (!document.getElementById('cancelHint')) {
-      const hint = document.createElement('span');
-      hint.id = 'cancelHint';
-      hint.textContent = '（ESCキーでもキャンセル）';
-      hint.style.marginLeft = '8px';
-      hint.style.fontSize = '0.92em';
-      hint.style.color = '#888';
-      guideDiv.appendChild(hint);
-    }
-  }
-};
-
-// 原点設定ボタン
-const setOriginBtn = document.getElementById('setOriginBtn');
-setOriginBtn.onclick = () => {
-  
-  if (mode === 'set-origin') {
-    // 既に設定中の場合はキャンセル
-    mode = null;
-    updateGuideText('');
-    disableVideoControls(false);
-    // ボタンのハイライトを解除
-    setOriginBtn.style.background = '';
-    // キャンセルボタンと案内を削除
-    const cancelBtn = document.getElementById('cancelBtn');
-    if (cancelBtn) cancelBtn.remove();
-    const cancelHint = document.getElementById('cancelHint');
-    if (cancelHint) cancelHint.remove();
-    // 画面を再描画（原点設定の場合は特に消去するものはないが、一貫性のため）
-    drawOverlay();
-  } else {
-    // 新規設定開始
-  mode = 'set-origin';
-  updateGuideText('原点設定: 原点となる点をクリックしてください');
-  disableVideoControls(true);
-    // ボタンをハイライト表示
-    setOriginBtn.style.background = '#ffd';
-    // キャンセルボタンをガイドテキストに追加
-    if (!document.getElementById('cancelBtn')) {
-      const cancelBtn = document.createElement('button');
-      cancelBtn.id = 'cancelBtn';
-      cancelBtn.textContent = 'キャンセル';
-      cancelBtn.style.marginLeft = '8px';
-      cancelBtn.style.fontSize = '0.95em';
-      cancelBtn.style.background = '#f9f9f9';
-      cancelBtn.style.border = '1px solid #aaa';
-      cancelBtn.style.color = '#c00';
-      cancelBtn.style.fontWeight = 'normal';
-      cancelBtn.style.borderRadius = '4px';
-      cancelBtn.style.padding = '1px 8px';
-      cancelBtn.style.cursor = 'pointer';
-      cancelBtn.onclick = () => {
-        // キャンセル処理
-        mode = null;
-        updateGuideText('');
-        disableVideoControls(false);
-        // ボタンのハイライトを解除
-        setOriginBtn.style.background = '';
-        // キャンセルボタンと案内を削除
-        const cancelBtn = document.getElementById('cancelBtn');
-        if (cancelBtn) cancelBtn.remove();
-        const cancelHint = document.getElementById('cancelHint');
-        if (cancelHint) cancelHint.remove();
-        // 画面を再描画
-        drawOverlay();
-      };
-      guideDiv.appendChild(cancelBtn);
-    }
-    // ガイドテキストにキャンセル案内を追加
-    if (!document.getElementById('cancelHint')) {
-      const hint = document.createElement('span');
-      hint.id = 'cancelHint';
-      hint.textContent = '（ESCキーでもキャンセル）';
-      hint.style.marginLeft = '8px';
-      hint.style.fontSize = '0.92em';
-      hint.style.color = '#888';
-      guideDiv.appendChild(hint);
-    }
-  }
-};
+// スケール・原点設定ボタンはUIEventManagerで管理
 
 // 物理座標変換（画面基準の水平・鉛直軸に固定、スケール線の傾き分だけ補正）
 function getPhysicalCoords(canvasX, canvasY) {
@@ -691,87 +1429,9 @@ video.addEventListener('loadedmetadata', function() {
   // 少し遅延を入れてからリサイズを実行（DOM要素のサイズが確定してから）
   setTimeout(() => {
     resizeCanvasToFit();
-  }, 100);
+  }, TIMING.RESIZE_DELAY);
   
-  // ユーザーにFPS入力を強制
-  video.addEventListener('loadeddata', function onLoadedData() {
-    if (video.duration > 0) {
-      // サンプル動画の場合はFPS入力ダイアログをスキップ
-      if (window.isSampleVideo) {
-        // サンプル動画の場合は既に設定されたFPS値（120）を使用
-        videoFps = parseFloat(fpsInput.value) || 120;
-        window.isSampleVideo = false; // フラグをリセット
-        
-        // フレーム数を計算
-        totalFrames = Math.floor(video.duration * videoFps);
-        currentFrame = 0;
-        startFrame = 0;
-        endFrame = totalFrames - 1;
-        startFrameInput.value = startFrame;
-        endFrameInput.value = endFrame;
-        frameSlider.min = startFrame;
-        frameSlider.max = endFrame;
-        frameSlider.value = 0;
-        updateCurrentFrameLabel();
-        drawOverlay();
-      } else {
-        // 通常の動画の場合はFPS入力を強制するポップアップ
-        const userFps = prompt('動画のフレームレート（FPS）を入力してください\n\n例：30, 60, 120\n\n※正確な値を入力しないとフレームが飛んで表示されます', '30');
-      
-        if (userFps !== null && !isNaN(userFps) && parseFloat(userFps) > 0) {
-          // ユーザーが入力したFPSを使用
-          videoFps = parseFloat(userFps);
-          fpsInput.value = videoFps; // UIのFPS入力欄も更新
-          
-          // フレーム数を計算
-          totalFrames = Math.floor(video.duration * videoFps);
-          currentFrame = 0;
-          startFrame = 0;
-          endFrame = totalFrames - 1;
-          startFrameInput.value = startFrame;
-          endFrameInput.value = endFrame;
-          frameSlider.min = startFrame;
-          frameSlider.max = endFrame;
-          frameSlider.value = 0;
-          updateCurrentFrameLabel();
-          drawOverlay();
-        } else {
-          // キャンセルまたは無効な値の場合、デフォルト値を使用
-          videoFps = 30;
-          fpsInput.value = videoFps;
-          totalFrames = Math.floor(video.duration * videoFps);
-          currentFrame = 0;
-          startFrame = 0;
-          endFrame = totalFrames - 1;
-          startFrameInput.value = startFrame;
-          endFrameInput.value = endFrame;
-          frameSlider.min = startFrame;
-          frameSlider.max = endFrame;
-          frameSlider.value = 0;
-          updateCurrentFrameLabel();
-          drawOverlay();
-        }
-      }
-    } else {
-      // フォールバック: デフォルト値を使用
-      videoFps = 30;
-      fpsInput.value = videoFps;
-      totalFrames = Math.floor(video.duration * videoFps);
-      currentFrame = 0;
-      startFrame = 0;
-      endFrame = totalFrames - 1;
-      startFrameInput.value = startFrame;
-      endFrameInput.value = endFrame;
-      frameSlider.min = startFrame;
-      frameSlider.max = endFrame;
-      frameSlider.value = 0;
-      updateCurrentFrameLabel();
-      drawOverlay();
-    }
-    
-    // 一度だけ実行するため、イベントリスナーを削除
-    video.removeEventListener('loadeddata', onLoadedData);
-  });
+  // FPS設定はVideoEventManagerで管理
 });
 
 // ウィンドウリサイズ時もcanvasサイズを再調整
@@ -781,7 +1441,7 @@ window.addEventListener('resize', function() {
   window.resizeTimeout = setTimeout(() => {
     resizeCanvasToFit();
     drawOverlay();
-  }, 100);
+  }, TIMING.RESIZE_DELAY);
 });
 
 let isDragging = false;
@@ -804,136 +1464,7 @@ canvas.addEventListener('mousemove', function(e) {
     canvas.style.cursor = 'default';
   }
 });
-
-// クリックイベント（ズーム機能は削除されたためシンプルに）
-canvas.addEventListener('click', function(e) {
-  let { x, y } = getCanvasCoords(e);
-
-  if (mode) {
-    // そのままcanvas座標として記録
-    if (mode === 'set-scale') {
-
-      
-      // 2点目（終点）の場合、Shiftキーが押されているかチェック
-      if (scalePoints.length === 1 && e.shiftKey) {
-        // Shiftキーが押されている場合、始点からの角度を鉛直または水平に制約
-        const startPoint = scalePoints[0];
-        const dx = x - startPoint.x;
-        const dy = y - startPoint.y;
-        
-        // 水平方向と鉛直方向の距離を比較して、より近い方向に制約
-        if (Math.abs(dx) > Math.abs(dy)) {
-          // 水平方向に制約（Y座標を始点と同じにする）
-          y = startPoint.y;
-        } else {
-          // 鉛直方向に制約（X座標を始点と同じにする）
-          x = startPoint.x;
-        }
-      }
-      
-      scalePoints.push({ x, y });
-      
-      drawOverlay(); // まず青マーカーを描画
-      if (scalePoints.length === 2) {
-        setTimeout(() => {
-          const proceed = confirm('スケール設定を続行しますか？\n\n「OK」: 距離を入力して設定完了\n「キャンセル」: 設定をキャンセル');
-          if (proceed) {
-            // OKが押された場合、距離入力を求める
-          const len = prompt('2点間の実際の長さをメートル単位で入力してください');
-          if (len && !isNaN(len)) {
-            scaleLength = parseFloat(len);
-            drawOverlay(); // スケール設定完了時に座標軸を表示
-            
-            // クイックガイドのステップを更新
-            updateQuickGuideStep(4);
-            } else if (len !== null) {
-              // 空文字や無効な値の場合
-              alert('有効な数値を入力してください');
-              scaleLength = null;
-          } else {
-               // キャンセルボタンが押された場合
-            scaleLength = null;
-               scalePoints = [];
-               // 画面を再描画して始点・終点・直線を消去
-               drawOverlay();
-             }
-          } else {
-            // キャンセルが押された場合
-            scaleLength = null;
-            scalePoints = [];
-            // 画面を再描画して始点・終点・直線を消去
-            drawOverlay();
-          }
-          mode = null;
-          updateGuideText('');
-          disableVideoControls(false);
-          // ボタンのハイライトを解除
-          setScaleBtn.style.background = '';
-          // キャンセルボタンと案内を削除
-          const cancelBtn = document.getElementById('cancelBtn');
-          if (cancelBtn) cancelBtn.remove();
-          const cancelHint = document.getElementById('cancelHint');
-          if (cancelHint) cancelHint.remove();
-        }, 50); // 描画後にconfirmを出す
-      } else {
-        updateGuideText('スケール設定: 2点目（終点）をクリックしてください（Shiftキーで水平・鉛直制約）');
-      }
-      return;
-    } else if (mode === 'set-origin') {
-      originPoint = { x, y };
-      mode = null;
-      updateGuideText('');
-      disableVideoControls(false);
-      // ボタンのハイライトを解除
-      setOriginBtn.style.background = '';
-      // キャンセルボタンと案内を削除
-      const cancelBtn = document.getElementById('cancelBtn');
-      if (cancelBtn) cancelBtn.remove();
-      const cancelHint = document.getElementById('cancelHint');
-      if (cancelHint) cancelHint.remove();
-      drawOverlay(); // 原点設定完了時に座標軸を表示
-      
-      // クイックガイドのステップを更新
-      updateQuickGuideStep(3);
-    }
-    return;
-  }
-
-  // 追跡モード時のクリック処理
-  if (trackingMode) {
-    const phys = getPhysicalCoords(x, y);
-    if (phys) {
-      if (currentFrame > endFrame) {
-        endTrackingMode();
-        return;
-      }
-      let frameData = trackingData.find(d => d.frame === currentFrame);
-      if (!frameData) {
-        frameData = { frame: currentFrame, positions: Array(objectCount).fill(null) };
-        trackingData.push(frameData);
-      }
-      frameData.positions[currentObjectIndex] = { x: phys.x, y: phys.y };
-      drawOverlay();
-      updateUndoBtnVisibility();
-      currentObjectIndex++;
-      if (currentObjectIndex >= objectCount) {
-        currentObjectIndex = 0;
-        goToFrame(currentFrame + frameInterval);
-        updateUndoBtnVisibility();
-      }
-      if (trackingMode) {
-        if (currentFrame > endFrame) {
-          endTrackingMode();
-        } else {
-          const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
-          updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください${intervalText}（${objectCount}物体）`, objectColors[currentObjectIndex % objectColors.length]);
-        }
-      }
-    } else {
-      alert('スケール・原点・スケール長が未設定です');
-    }
-  }
-});
+// クリックイベントはUIEventManagerで管理
 
 // drawOverlay: 物体ごとの点描画も保存値そのまま（符号反転・入れ替えなし）
 function drawOverlay() {
@@ -1198,7 +1729,9 @@ endFrameInput.addEventListener('change', function() {
 
 // 現在のフレーム番号を表示
 function updateCurrentFrameLabel() {
-  currentFrameLabel.textContent = `現在フレーム: ${currentFrame}`;
+  // nullやundefinedの場合は0として表示
+  const frameNumber = currentFrame ?? 0;
+  currentFrameLabel.textContent = `現在フレーム: ${frameNumber}`;
 }
 
 // スライダーと動画の同期
@@ -1213,12 +1746,11 @@ frameSlider.addEventListener('input', function() {
   // 少し遅延してフラグをクリア
   setTimeout(() => {
     pendingSeekFrame = null;
-  }, 50);
+  }, TIMING.FRAME_UPDATE_DELAY);
 });
 
 // 動画の再生位置が変わったらスライダーも追従
 video.addEventListener('timeupdate', function() {
-  if (pendingSeekFrame != null) return; // goToFrame 進行中は上書きしない
   const f = Math.floor(video.currentTime * videoFps + 1e-3);
   
   // 終了フレームを超えないように制限（再生中のみ）
@@ -1229,6 +1761,19 @@ video.addEventListener('timeupdate', function() {
     if (trackingMode) {
       endTrackingMode();
     }
+    return;
+  }
+  
+  // pendingSeekFrameが設定されている場合は、その値と一致するかチェック
+  if (pendingSeekFrame !== null) {
+    // 目標フレームに到達したらpendingSeekFrameをクリアし、フレーム番号を更新
+    if (f === pendingSeekFrame) {
+      currentFrame = f;
+      frameSlider.value = f;
+      updateCurrentFrameLabel();
+      pendingSeekFrame = null;
+    }
+    // pendingSeekFrame中はtimeupdateでのフレーム更新は行わない
     return;
   }
   
@@ -1244,11 +1789,8 @@ video.addEventListener('timeupdate', function() {
     video.pause();
     // currentTimeをendFrameに強制セット
     video.currentTime = endFrame / videoFps;
-    // 追跡モードの場合は自動終了
-    if (trackingMode) {
-      endTrackingMode();
-    }
   }
+  
   // 追跡モードで現在フレームが終了フレーム以上の場合、追跡モードを終了
   if (trackingMode && currentFrame >= endFrame) {
     // 一度だけ実行するようにフラグを設定
@@ -1258,7 +1800,7 @@ video.addEventListener('timeupdate', function() {
         endTrackingMode();
         updateGuideText('追跡が完了しました');
         window.trackingCompleted = false;
-      }, 100);
+      }, TIMING.TRACKING_COMPLETE_DELAY);
     }
   }
 });
@@ -1661,8 +2203,12 @@ undoBtn.onclick = () => {
   }
 };
 
-// 初期化時にクイックガイドをステップ0に設定
+// イベントマネージャーのインスタンスを作成
+const eventManager = new EventManager();
+
+// 初期化時にクイックガイドをステップ0に設定し、イベントマネージャーを初期化
 document.addEventListener('DOMContentLoaded', function() {
   updateQuickGuideStep(0);
+  eventManager.initialize();
 });
 

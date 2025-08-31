@@ -166,14 +166,8 @@ document.getElementById('loadSampleVideo').onclick = function() {
   const cancelHint = document.getElementById('cancelHint');
   if (cancelHint) cancelHint.remove();
   
-  // 動画の読み込みが完了したらリサイズを実行
-  video.addEventListener('loadeddata', function() {
-    setTimeout(() => {
-      if (typeof resizeCanvasToFit === 'function') {
-        resizeCanvasToFit();
-      }
-    }, 100);
-  }, { once: true });
+  // 動画の読み込みが完了したらリサイズを実行（VideoEventManagerで管理）
+  // リサイズ処理はVideoEventManagerのhandleLoadedMetadataで実行される
 };
 </script>
 </body>
