@@ -19,7 +19,7 @@
       padding: 0; 
     }
     .container { 
-      max-width: 800px; 
+      max-width: 900px; 
       margin: 32px auto 32px auto; 
       background: #fff; 
       border-radius: 10px; 
@@ -80,6 +80,46 @@
       content: "💡 ";
       font-weight: bold;
     }
+    .guide-info {
+      background: #f0f8ff;
+      border: 1px solid #b3d9ff;
+      border-radius: 6px;
+      padding: 15px;
+      margin: 15px 0;
+      word-wrap: break-word;
+      word-break: normal;
+      white-space: normal;
+      line-height: 1.6;
+      writing-mode: horizontal-tb;
+      text-orientation: mixed;
+      direction: ltr;
+    }
+    .guide-info:before {
+      content: "🎯 ";
+      font-weight: bold;
+    }
+    .color-guide {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      margin: 0 5px;
+      vertical-align: baseline;
+    }
+    .blue-guide { background: #007bff; }
+    .yellow-guide { background: #ffc107; }
+    .green-guide { background: #28a745; }
+    .image-placeholder {
+      background: #f0f0f0;
+      border: 2px dashed #ccc;
+      border-radius: 6px;
+      padding: 40px 20px;
+      text-align: center;
+      color: #666;
+      font-style: italic;
+      margin: 16px auto;
+      max-width: 95%;
+    }
   </style>
 </head>
 <body>
@@ -91,85 +131,87 @@
       下図は実験のイメージです。
     </p>
     
-    <img src="assets/images/aluminum_cups.png" alt="アルミカップ落下実験イメージ" style="display:block; margin:16px auto 24px auto; max-width:80%; border-radius:6px; box-shadow:0 1px 6px #0002;">
+    <img src="assets/images/aluminum_cups.png" alt="アルミカップ落下実験イメージ" style="display:block; margin:16px auto 20px auto; max-width:60%; border-radius:6px; box-shadow:0 1px 6px #0002;">
     
     <p>
       実際の例では、カップが5枚重ねてあります（n=5）。
     </p>
 
-    <div class="step">
-      <h2>1. 動画ファイルを選択・初期設定</h2>
-      <p>
-        <strong>サンプル動画で練習する場合：</strong>「サンプル動画」ボタンをクリック<br>
-        <strong>ご自身の動画を使う場合：</strong>「ファイル選択」ボタンで動画（mp4, mov等）を選択
-      </p>
-      <p>
-        動画を開いた直後にポップアップが表示され、「フレームレート(fps)」の入力を求められます（この例では120に設定）。<br>
-        動画下のスライダーで内容を確認し、必要に応じて「開始」「終了」のフレーム数も入力してください。
-      </p>
-      <img src="assets/images/tutorial_1.png" alt="動画ファイル選択・初期設定">
+    <div class="guide-info">
+      <strong>🎯 青・黄・緑のガイドについて</strong><br>
+      このソフトウェアでは、画面下部に5つのステップガイドが表示され、進捗状況を色で教えてくれます：<br>
+      <div style="margin: 15px 0; line-height: 2.5;">
+        <span class="color-guide blue-guide"></span><strong>青</strong>：まだ完了していないステップ<br>
+        <span class="color-guide yellow-guide"></span><strong>黄</strong>：現在実行中のステップ（イマココ）<br>
+        <span class="color-guide green-guide"></span><strong>緑</strong>：完了済みのステップ
+      </div>
+      操作を進めるにつれて、青→黄→緑の順で色が変わり、全体の進捗が一目で分かります。
     </div>
 
     <div class="step">
-      <h2>2. 原点・スケールを設定</h2>
+      <h2>1. 動画読み込み・初期設定</h2>
+      
+      <p>
+        <strong>サンプル動画で練習：</strong>「サンプル動画」ボタンをクリック<br>
+        <strong>ご自身の動画：</strong>「ファイル選択」ボタンで動画（mp4, mov等）を選択
+      </p>
+      
+      <p>
+        動画読み込み後、「フレーム設定」セクションで「FPS」（1秒あたりのフレーム数）を入力します。<br>
+        サンプル動画の場合は自動的に120fpsが設定されます。ご自身の動画の場合は、撮影時のフレームレートを入力してください。<br>
+        動画下のスライダーで解析範囲を確認し、必要に応じて「開始」「終了」フレーム数を調整してください。
+      </p>
+    </div>
+
+    <div class="step">
+      <h2>2. 原点・スケール設定</h2>
       
       <h3>原点設定</h3>
       <p>
-        「原点設定」ボタンをクリックし、原点（例：解析開始フレームでの物体の位置）をクリックして設定します。
+        「原点設定」ボタンをクリック → 原点となる点をクリック
       </p>
-      <img src="assets/images/tutorial_2.png" alt="原点設定">
+      
+      <img src="assets/images/tutorial_1.png" alt="原点設定画面" style="display:block; margin:16px auto 0 auto; max-width:85%; border-radius:6px; box-shadow:0 2px 6px #0002;">
       
       <h3>スケール設定</h3>
       <p>
-        「スケール設定」ボタンをクリックし、スケールの始点と終点（例：テープメジャーの0cmと100cm）を順にクリックします。
+        「スケール設定」ボタンをクリック → 始点をクリック → 終点をクリック → 実際の長さを入力（例：1.0m）
       </p>
-      <div class="tip">
-        <strong>便利な機能：</strong>終点をクリックする際、<strong>Shiftキーを押しながらクリック</strong>すると水平・鉛直制約が適用されます。
-      </div>
-      <img src="assets/images/tutorial_3.png" alt="スケール設定">
       
-      <h3>スケール長さ入力</h3>
-      <p>
-        始点・終点をクリック後、実際の長さ（例：1.0、単位はm）を数値のみ入力します。
-      </p>
-      <img src="assets/images/tutorial_4.png" alt="スケール長さ入力">
-    </div>
-
-    <div class="step">
-      <h2>3. 解析条件を設定</h2>
-      <p>
-        「フレーム間隔」を入力（例：20）。この例では20フレームごとに追跡します。<br>
-        「物体数」を設定（例：1）。複数の物体を同時に追跡する場合は物体数を増やしてください。
-      </p>
-      <img src="assets/images/tutorial_5.png" alt="フレーム間隔設定例">
-    </div>
-
-    <div class="step">
-      <h2>4. 追跡開始</h2>
-      <p>
-        「追跡開始」ボタンをクリックして物体の位置（例：カップの重心付近）を各フレームでクリックして記録します。<br>
-        指定したフレーム間隔ごと（この例では0, 20, 40, 60フレーム目など）に赤点が記録されていきます。
-      </p>
       <div class="tip">
-        <strong>操作ヒント：</strong>追跡モード中は「やり直し」ボタンやZキー/Backspaceで直前の点を取り消せます。「戻る」ボタンでそのフレームの全物体の点を消し、再入力できます。
+        <strong>便利な機能：</strong>終点クリック時に<strong>Shiftキー</strong>を押すと水平・鉛直制約が適用されます。
       </div>
-      <img src="assets/images/tutorial_6.png" alt="追跡クリック・記録例">
+      
+      <img src="assets/images/tutorial_2.png" alt="スケール設定画面" style="display:block; margin:16px auto 0 auto; max-width:85%; border-radius:6px; box-shadow:0 2px 6px #0002;">
     </div>
 
     <div class="step">
-      <h2>5. データ出力でデータ保存</h2>
+      <h2>3. 追跡実行</h2>
+      
       <p>
-        「データ出力」ボタンをクリックすると、Excel用（タブ区切り）またはCSV形式を選択できます。<br>
-        選択した形式でデータが表示され、画面からコピーしてExcelやGoogleスプレッドシートに貼り付けることができます。
+        「フレーム間隔」と「物体数」を設定（例：間隔20、物体数1）<br>
+        「追跡開始」ボタンをクリック → 各フレームで物体の位置をクリック
       </p>
-      <img src="assets/images/tutorial_7.png" alt="データ出力">
+      
+      <img src="assets/images/tutorial_3.png" alt="追跡中画面" style="display:block; margin:16px auto 0 auto; max-width:85%; border-radius:6px; box-shadow:0 2px 6px #0002;">
+      
+      <div class="tip">
+        <strong>操作ヒント：</strong>「Undo」ボタンで直前の点を取り消せます。繰り返し使用することで複数の点を順次削除できます。
+      </div>
+    </div>
+
+    <div class="step">
+      <h2>4. データ出力</h2>
+      
+      <p>
+        追跡完了後、「データ出力」ボタンをクリック → Excel用またはCSV形式を選択 → 表示されたデータをコピーしてExcelなどに貼り付け
+      </p>
     </div>
 
     <ul class="hint">
-      <li><strong>フレームレート（fps）、解析開始フレーム、解析終了フレーム</strong>の各入力欄には数字のみ入力してください。</li>
-      <li><strong>動画の拡大・移動</strong>には、ブラウザ標準のズーム機能（Ctrl/Cmd+マウスホイール、ピンチズーム）をご利用ください</li>
-      <li><strong>データはローカルのみで処理</strong>され、サーバー送信はありません</li>
-      <li><strong>物体数を2以上に設定</strong>すると、各フレームで複数の物体の位置を順にクリックして記録できます</li>
+      <li><strong>5つのステップガイド</strong>（青→黄→緑の進捗表示）に従って操作することで、迷うことなく解析を進められます</li>
+      <li><strong>物体数を2以上に設定</strong>すると、各フレームで複数の物体の位置を順に記録できます</li>
+      <li><strong>全リセット</strong>ボタンで原点・スケール設定、追跡データ、フレーム設定をすべてリセットできます</li>
     </ul>
 
     <div class="step">
@@ -185,7 +227,7 @@
   
   <footer style="text-align: center; padding: 15px; margin-top: 30px; font-size: 0.8em; color: #666; border-top: 1px solid #ddd; background: #f9f9f9;">
     © 2025 一般社団法人 国際物理オリンピック2023記念協会 – CC BY-NC 4.0<br>
-    <small>最終更新: 2025年8月30日</small>
+    <small>最終更新: 2025年1月</small>
   </footer>
 </body>
 </html> 

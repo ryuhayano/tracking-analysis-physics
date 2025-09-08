@@ -16,14 +16,18 @@
   <div class="main-container">
     <div class="control-panel">
       <span class="app-title"><img src="assets/images/logo.png" class="app-logo" alt="Logo"> Tracking Analysis for Physics</span>
-      <div class="file-input-row">
-        <label for="videoInput" class="file-input-label">ファイル選択</label>
-        <input type="file" id="videoInput" accept="video/*">
-        <div class="file-name-display" id="fileNameDisplay"></div>
-        <button id="loadSampleVideo" type="button">サンプル動画</button>
-        <a href="USAGE_GUIDE.html" target="_blank" class="guide-link">
-          <span>❓</span> 使い方ガイド
-        </a>
+      <div class="file-input-section">
+        <div class="file-input-row">
+          <label for="videoInput" class="file-input-label">ファイル選択</label>
+          <input type="file" id="videoInput" accept="video/*">
+          <div class="file-name-display" id="fileNameDisplay"></div>
+        </div>
+        <div class="file-input-row">
+          <button id="loadSampleVideo" type="button">サンプル動画</button>
+          <a href="USAGE_GUIDE.html" target="_blank" class="guide-link">
+            <span>❓</span> 使い方ガイド
+          </a>
+        </div>
       </div>
       <div class="control-grid">
         <div class="control-section">
@@ -36,6 +40,10 @@
           <select id="objectCountSelect">
             <option value="1" selected>1</option>
             <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
           </select>
           <label for="frameIntervalSelect">フレーム間隔</label>
           <select id="frameIntervalSelect">
@@ -53,21 +61,22 @@
           <button id="prevFrameBtn">⏪戻る</button>
           <button id="nextFrameBtn">⏩進む</button>
         </div>
-        <div class="control-section">
+        <div class="control-section frame-controls">
+          <div class="frame-label">フレーム設定</div>
           <label>FPS: <input type="text" id="fpsInput" value="30"></label>
-        </div>
-        <div class="control-section">
-          <label>開始: <input type="text" id="startFrameInput"></label>
-          <label>終了: <input type="text" id="endFrameInput"></label>
+          <div class="frame-range">
+            <label>開始: <input type="text" id="startFrameInput"></label>
+            <label>終了: <input type="text" id="endFrameInput"></label>
+            <span id="currentFrameLabel" class="current-frame">現在フレーム: 0</span>
+          </div>
         </div>
         <div class="control-section">
           <button id="undoBtn" style="display:none;">Undo</button>
-          <button id="exportCsvBtn">データ出力</button>
-          <button id="resetBtn">やり直し</button>
         </div>
-      </div>
-      <div class="frame-info">
-        <span id="currentFrameLabel">現在フレーム: 0</span>
+        <div class="control-section data-output-section">
+          <button id="exportCsvBtn">データ出力</button>
+          <button id="resetBtn">全リセット</button>
+        </div>
       </div>
       <div class="quick-guide">
         <div class="guide-step">

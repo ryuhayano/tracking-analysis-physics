@@ -737,7 +737,7 @@ class UIEventManager {
   }
   
   handleReset() {
-    if (confirm('本当に最初からやり直しますか？（未保存のデータは失われます）')) {
+    if (confirm('すべての設定とデータをリセットしますか？\n\n• 原点・スケール設定\n• 追跡データ\n• フレーム設定\n\n※未保存のデータは失われます')) {
       window.location.reload();
     }
   }
@@ -785,17 +785,19 @@ class UIEventManager {
       guideDiv.appendChild(cancelBtn);
     }
     
-    if (!document.getElementById('cancelHint')) {
-      const hint = createCancelHint();
-      guideDiv.appendChild(hint);
-    }
+    // キャンセル案内は表示しない（簡略化）
+    // if (!document.getElementById('cancelHint')) {
+    //   const hint = createCancelHint();
+    //   guideDiv.appendChild(hint);
+    // }
   }
   
   removeCancelElements() {
     const cancelBtn = document.getElementById('cancelBtn');
     if (cancelBtn) cancelBtn.remove();
-    const cancelHint = document.getElementById('cancelHint');
-    if (cancelHint) cancelHint.remove();
+    // キャンセル案内は表示しないため削除処理も不要
+    // const cancelHint = document.getElementById('cancelHint');
+    // if (cancelHint) cancelHint.remove();
   }
 }
 
@@ -946,15 +948,10 @@ function createCancelButton(onCancel) {
   return cancelBtn;
 }
 
-// キャンセル案内作成の共通関数
+// キャンセル案内作成の共通関数（簡略化のため削除）
 function createCancelHint() {
-  const hint = document.createElement('span');
-  hint.id = 'cancelHint';
-  hint.textContent = '（ESCキーでもキャンセル）';
-  hint.style.marginLeft = '8px';
-  hint.style.fontSize = '0.92em';
-  hint.style.color = '#888';
-  return hint;
+  // 案内文を削除してシンプルに
+  return null;
 }
 
 // フレーム数計算とUI更新の共通関数
@@ -1038,24 +1035,24 @@ function moveUndoBtnToPanel() {
 function updateUndoBtnVisibility() {
   if (trackingMode) {
     moveUndoBtnToGuide();
-    // ショートカット案内も表示
-    if (!document.getElementById('undoShortcutHint')) {
-      const hint = document.createElement('span');
-      hint.id = 'undoShortcutHint';
-      hint.textContent = '（ZキーまたはBackspaceでもUndo）';
-      hint.style.marginLeft = '8px';
-      hint.style.fontSize = '0.92em';
-      hint.style.color = '#888';
-      guideDiv.appendChild(hint);
-    }
+    // ショートカット案内は表示しない（簡略化）
+    // if (!document.getElementById('undoShortcutHint')) {
+    //   const hint = document.createElement('span');
+    //   hint.id = 'undoShortcutHint';
+    //   hint.textContent = '（ZキーまたはBackspaceでもUndo）';
+    //   hint.style.marginLeft = '8px';
+    //   hint.style.fontSize = '0.92em';
+    //   hint.style.color = '#888';
+    //   guideDiv.appendChild(hint);
+    // }
   } else {
     // Undoボタンを完全に非表示・DOMからも削除
     if (undoBtn.parentNode) {
       undoBtn.parentNode.removeChild(undoBtn);
     }
-    // ショートカット案内を消す
-    const hint = document.getElementById('undoShortcutHint');
-    if (hint) hint.remove();
+    // ショートカット案内は表示しないため削除処理も不要
+    // const hint = document.getElementById('undoShortcutHint');
+    // if (hint) hint.remove();
   }
 }
 
@@ -1743,10 +1740,21 @@ frameSlider.addEventListener('input', function() {
   currentFrame = pendingSeekFrame;
   video.currentTime = currentFrame / videoFps;
   updateCurrentFrameLabel();
+  // 動画フレームを即座に更新
+  drawOverlay();
   // 少し遅延してフラグをクリア
   setTimeout(() => {
     pendingSeekFrame = null;
   }, TIMING.FRAME_UPDATE_DELAY);
+});
+
+// スライダーのドラッグ終了時にも確実に更新
+frameSlider.addEventListener('change', function() {
+  const frame = parseInt(frameSlider.value) || 0;
+  currentFrame = frame;
+  video.currentTime = currentFrame / videoFps;
+  updateCurrentFrameLabel();
+  drawOverlay();
 });
 
 // 動画の再生位置が変わったらスライダーも追従

@@ -130,12 +130,18 @@ canvas, video {
   display: block;
 }
 
+.file-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
 .file-input-row {
   display: flex;
   align-items: center;
   gap: 4px;
   justify-content: center;
-  margin-bottom: 6px;
   flex-wrap: wrap;
 }
 
@@ -151,21 +157,75 @@ canvas, video {
   gap: 4px;
   flex-wrap: wrap;
   padding: 6px;
-  background: #f8f8f8;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
   /* レスポンシブ対応は各メディアクエリでオーバーライド */
 }
 
-.frame-info {
-  margin-top: 8px;
-  padding: 6px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-  text-align: center;
+/* データ出力セクションのボーダーを削除 */
+.data-output-section {
+  background: transparent;
+  border: none;
+  padding: 4px;
+}
+
+/* リセットボタン専用のスタイル */
+#resetBtn {
+  background: #ffebee !important;
+  border-color: #f44336 !important;
+  color: #d32f2f !important;
+}
+
+#resetBtn:hover {
+  background: #ffcdd2 !important;
+  border-color: #d32f2f !important;
+}
+
+.frame-controls {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  padding: 12px 8px 8px 8px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.frame-label {
+  position: absolute;
+  top: -12px;
+  left: 12px;
+  background: #fff;
+  padding: 2px 8px;
+  font-size: 0.7em;
+  color: #6c757d;
+  font-weight: 500;
+  border: 1px solid #e9ecef;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  z-index: 1;
+}
+
+.frame-controls > label {
+  margin-right: 8px;
+  align-self: flex-start;
+}
+
+.frame-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.frame-range label {
+  margin-right: 8px;
+}
+
+.frame-range .current-frame {
+  font-size: 0.9em;
+  color: #495057;
   font-weight: bold;
-  font-size: 0.8em;
+  margin-left: auto;
+  text-align: left;
 }
 
 .quick-guide {
@@ -527,9 +587,13 @@ input[type="file"] {
     padding: 2px 4px;
   }
   
+  .file-input-section {
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  
   .file-input-row {
     gap: 3px;
-    margin-bottom: 4px;
   }
   
   .control-section {
