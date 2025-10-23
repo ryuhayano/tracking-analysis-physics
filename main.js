@@ -97,6 +97,24 @@ class VideoEventManager {
   handleLoadedData() {
     // FPS設定とフレーム計算の処理
     this.setupVideoFPS();
+    
+    // Chromebookで.movファイルの最初のフレームを確実に表示
+    this.ensureFirstFrameDisplay();
+  }
+  
+  ensureFirstFrameDisplay() {
+    // 動画の現在時刻を0に設定（最初のフレームを確実に表示）
+    video.currentTime = 0;
+    
+    // 少し遅延してから描画を実行（Chromebookでの描画タイミング問題を回避）
+    setTimeout(() => {
+      drawOverlay();
+    }, 100);
+    
+    // 追加の描画保証（複数のタイミングで描画）
+    video.addEventListener('seeked', function() {
+      drawOverlay();
+    }, { once: true });
   }
   
   handlePlay() {
@@ -499,6 +517,11 @@ class UIEventManager {
         video.addEventListener('loadeddata', function() {
           setTimeout(() => {
             resizeCanvasToFit();
+            // Chromebookで.movファイルの最初のフレームを確実に表示
+            video.currentTime = 0;
+            setTimeout(() => {
+              drawOverlay();
+            }, 50);
           }, TIMING.RESIZE_DELAY);
         }, { once: true });
         
@@ -600,34 +623,41 @@ class UIEventManager {
     scalePoints.push({ x, y });
     drawOverlay();
     
+    // デバッグ用ログ
+    console.log('スケール設定: 終点クリック完了、プロンプト表示準備中...');
+    
     // 2点目がクリックされた場合のみダイアログを表示
-    setTimeout(() => {
-      const proceed = confirm('スケール設定を続行しますか？\n\n「OK」: 距離を入力して設定完了\n「キャンセル」: 設定をキャンセル');
-      if (proceed) {
-        const len = prompt('2点間の実際の長さをメートル単位で入力してください');
-        if (len && !isNaN(len)) {
-          scaleLength = parseFloat(len);
-          drawOverlay();
-          updateQuickGuideStep(4);
-        } else if (len !== null) {
-          alert('有効な数値を入力してください');
-          scaleLength = null;
+    // requestAnimationFrameを使用してより確実にプロンプトを表示
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        console.log('スケール設定: プロンプト表示開始');
+        const proceed = confirm('スケール設定を続行しますか？\n\n「OK」: 距離を入力して設定完了\n「キャンセル」: 設定をキャンセル');
+        if (proceed) {
+          const len = prompt('2点間の実際の長さをメートル単位で入力してください');
+          if (len && !isNaN(len)) {
+            scaleLength = parseFloat(len);
+            drawOverlay();
+            updateQuickGuideStep(4);
+          } else if (len !== null) {
+            alert('有効な数値を入力してください');
+            scaleLength = null;
+          } else {
+            scaleLength = null;
+            scalePoints = [];
+            drawOverlay();
+          }
         } else {
           scaleLength = null;
           scalePoints = [];
           drawOverlay();
         }
-      } else {
-        scaleLength = null;
-        scalePoints = [];
-        drawOverlay();
-      }
-      mode = null;
-      updateGuideText('');
-      disableVideoControls(false);
-      setScaleBtn.style.background = '';
-      this.removeCancelElements();
-    }, 50);
+        mode = null;
+        updateGuideText('');
+        disableVideoControls(false);
+        setScaleBtn.style.background = '';
+        this.removeCancelElements();
+      });
+    });
   }
   
   handleOriginClick(x, y) {
@@ -1591,7 +1621,11 @@ video.addEventListener('seeked', function() {
 
 // 初期化時もcanvasに描画
 video.addEventListener('loadeddata', function() {
-  drawOverlay();
+  // Chromebookで.movファイルの最初のフレームを確実に表示
+  video.currentTime = 0;
+  setTimeout(() => {
+    drawOverlay();
+  }, 100);
 });
 
 // video要素は常に非表示
