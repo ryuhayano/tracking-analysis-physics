@@ -1,0 +1,2082 @@
+<!--
+  Physics Exam Lab - Tracking Analysis Software
+  Copyright (c) 2025 一般社団法人 国際物理オリンピック2023記念協会
+  Licensed under the Creative Commons BY-NC 4.0 International License.
+  See https://creativecommons.org/licenses/by-nc/4.0/
+-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracking Analysis for Physics</title>
+  <style>
+    html, body {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Meiryo', sans-serif;
+      background: #f5f5f5;
+      text-align: center;
+    }
+
+    .main-container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    h1 {
+      margin-top: 24px;
+      margin-bottom: 16px;
+    }
+
+    .app-title {
+      font-size: 0.9em;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 8px;
+      margin-top: 0;
+      letter-spacing: 0.005em;
+      white-space: normal;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      line-height: 1.2;
+      min-height: 1em;
+      overflow: visible;
+      flex-wrap: wrap;
+    }
+
+    .app-logo {
+      height: 5.0em;
+      width: auto;
+      vertical-align: middle;
+      display: inline-block;
+      margin-top: -0.2em;
+      margin-bottom: -0.2em;
+    }
+
+    .control-panel {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border-right: 1px solid #ddd;
+      box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+      width: 280px;
+      flex-shrink: 0;
+      padding: 12px;
+      gap: 10px;
+      overflow-y: auto;
+    }
+
+    .button-group, .video-controls, .frame-settings {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* 共通ボタンスタイル */
+    .button-group button, .video-controls button, .control-section button, #undoBtn {
+      margin: 0 2px;
+      padding: 4px 8px;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      border: 1px solid #bbb;
+      background: #f0f0f0;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .button-group button:hover, .video-controls button:hover, .control-section button:hover, #undoBtn:hover {
+      background: #e0e0e0;
+    }
+
+    /* #undoBtn専用のオーバーライド */
+    #undoBtn {
+      margin: 0 4px;
+      padding: 6px 14px;
+      font-size: 1rem;
+    }
+
+    .video-container {
+      flex: 1;
+      background: #222;
+      padding: 0;
+      padding-bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    canvas, video {
+      display: block;
+      margin: 0 auto;
+      border-radius: 4px;
+      background: #000;
+      max-width: 98vw;
+    }
+
+    #guideText, .guide-text {
+      min-height: 1.5em;
+      display: block;
+    }
+
+    .file-input-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .file-input-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .control-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-section {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      padding: 6px;
+    }
+
+    /* データ出力セクションのボーダーを削除 */
+    .data-output-section {
+      background: transparent;
+      border: none;
+      padding: 4px;
+    }
+
+    /* リセットボタン専用のスタイル */
+    #resetBtn {
+      background: #ffebee !important;
+      border-color: #f44336 !important;
+      color: #d32f2f !important;
+    }
+
+    #resetBtn:hover {
+      background: #ffcdd2 !important;
+      border-color: #d32f2f !important;
+    }
+
+    .frame-controls {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      padding: 10px 6px 6px 6px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .frame-label {
+      position: absolute;
+      top: -12px;
+      left: 12px;
+      background: #fff;
+      padding: 2px 8px;
+      font-size: 0.7em;
+      color: #6c757d;
+      font-weight: 500;
+      border: 1px solid #e9ecef;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      z-index: 1;
+    }
+
+    .frame-controls > label {
+      margin-right: 8px;
+      align-self: flex-start;
+    }
+
+    .frame-range {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .frame-range label {
+      margin-right: 8px;
+    }
+
+    .frame-range .current-frame {
+      font-size: 0.9em;
+      color: #495057;
+      font-weight: bold;
+      margin-left: auto;
+      text-align: left;
+    }
+
+    .quick-guide {
+      margin-top: 8px;
+      padding: 8px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e9ecef;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .guide-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75em;
+      color: #495057;
+    }
+
+    .step-number {
+      background: #2277cc;
+      color: white;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.7em;
+      flex-shrink: 0;
+    }
+
+    .step-text {
+      font-weight: 500;
+    }
+
+    .license-info {
+      position: fixed;
+      bottom: 5px;
+      left: 5px;
+      padding: 4px 8px;
+      background: #f8f8f8;
+      border-radius: 3px;
+      border: 1px solid #e0e0e0;
+      text-align: center;
+      font-size: 0.65em;
+      color: #888;
+      line-height: 1.2;
+      z-index: 1000;
+      max-width: 220px;
+      word-wrap: break-word;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .guide-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.9em;
+      font-weight: bold;
+      color: #fff;
+      background: #2277cc;
+      border-radius: 4px;
+      padding: 4px 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      border: 1px solid #2277cc;
+      text-decoration: none;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .guide-link:hover {
+      background: #115599;
+    }
+
+    input[type="file"] {
+      font-size: 0.85em;
+      padding: 4px 8px;
+      margin: 0;
+      height: 32px;
+      box-sizing: border-box;
+      cursor: pointer;
+      display: none;
+    }
+
+    .file-input-label {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #2277cc;
+      color: white;
+      border-radius: 4px;
+      font-size: 0.85em;
+      cursor: pointer;
+      border: none;
+      text-align: center;
+      transition: background 0.2s;
+    }
+
+    .file-input-label:hover {
+      background: #115599;
+    }
+
+    .file-name-display {
+      font-size: 0.8em;
+      color: #333;
+      margin: 3px 0;
+      word-break: break-all;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: normal;
+      background: transparent;
+      padding: 2px 4px;
+      border-radius: 2px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+
+    .control-section input[type="text"], .control-section select {
+      font-size: 0.85em;
+      padding: 2px 6px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      width: 60px;
+    }
+
+    .control-section label {
+      font-size: 0.75em;
+      font-weight: bold;
+      margin-right: 4px;
+    }
+
+    #frameSlider {
+      box-sizing: border-box;
+      display: block;
+      margin: 12px auto 20px auto;
+      width: 90%;
+      height: 2px;
+      background: #444;
+      border-radius: 4px;
+      border: 1px solid #666;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    #frameSlider::-webkit-slider-thumb {
+      appearance: none;
+      width: 10px;
+      height: 10px;
+      background: #007AFF;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    #frameSlider::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      background: #007AFF;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    @media (max-width: 1400px) {
+      .control-panel {
+        width: 260px;
+        padding: 8px;
+        gap: 8px;
+      }
+      .app-title {
+        font-size: 0.9em;
+        gap: 4px;
+        margin-bottom: 6px;
+      }
+      .app-logo {
+        height: 3.0em;
+      }
+      .control-section button {
+        font-size: 0.75em;
+        padding: 3px 5px;
+      }
+      .control-section input[type="text"], .control-section select {
+        font-size: 0.75em;
+        width: 45px;
+      }
+      .control-section {
+        padding: 4px;
+        gap: 3px;
+      }
+      .file-input-section {
+        gap: 4px;
+        margin-bottom: 6px;
+      }
+      .quick-guide {
+        margin-top: 6px;
+        padding: 6px;
+        gap: 3px;
+      }
+      .guide-step {
+        font-size: 0.7em;
+      }
+    }
+
+    @media (max-width: 1200px) {
+      .control-panel {
+        width: 240px;
+        padding: 6px;
+        gap: 6px;
+      }
+      .app-title {
+        font-size: 0.85em;
+        gap: 3px;
+        margin-bottom: 4px;
+      }
+      .app-logo {
+        height: 2.5em;
+      }
+      .control-section button {
+        font-size: 0.7em;
+        padding: 2px 4px;
+      }
+      .control-section input[type="text"], .control-section select {
+        font-size: 0.7em;
+        width: 40px;
+      }
+      .control-section {
+        padding: 3px;
+        gap: 2px;
+      }
+      .file-input-section {
+        gap: 3px;
+        margin-bottom: 4px;
+      }
+      .quick-guide {
+        margin-top: 4px;
+        padding: 4px;
+        gap: 2px;
+      }
+      .guide-step {
+        font-size: 0.65em;
+      }
+    }
+
+    @media (max-width: 1000px) {
+      .control-panel {
+        width: 220px;
+        padding: 4px;
+        gap: 4px;
+      }
+      .app-title {
+        font-size: 0.75em;
+        gap: 2px;
+        margin-bottom: 2px;
+      }
+      .app-logo {
+        height: 2.0em;
+      }
+      .control-section button {
+        font-size: 0.65em;
+        padding: 2px 3px;
+      }
+      .control-section input[type="text"], .control-section select {
+        font-size: 0.65em;
+        width: 35px;
+      }
+      .control-section {
+        padding: 2px;
+        gap: 2px;
+      }
+      .file-input-section {
+        gap: 2px;
+        margin-bottom: 2px;
+      }
+      .quick-guide {
+        margin-top: 2px;
+        padding: 2px;
+        gap: 1px;
+      }
+      .guide-step {
+        font-size: 0.6em;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .main-container {
+        flex-direction: column;
+      }
+      .control-panel {
+        width: 100%;
+        border-right: none;
+        border-bottom: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-height: 35vh;
+        padding: 8px;
+        gap: 6px;
+      }
+      
+      .app-title {
+        font-size: 1.1em;
+        letter-spacing: 0.5px;
+        gap: 6px;
+      }
+      
+      .app-logo {
+        height: 2.0em;
+      }
+      
+      .control-section {
+        padding: 4px;
+        gap: 3px;
+      }
+      
+      .control-section button {
+        font-size: 0.75em;
+        padding: 3px 6px;
+      }
+      
+      .control-section input,
+      .control-section select {
+        font-size: 0.75em;
+        width: 60px;
+      }
+      
+      .video-container {
+        flex: 1;
+        min-height: 65vh;
+      }
+      
+      .license-info {
+        position: static;
+        margin-top: 8px;
+        max-width: 100%;
+        font-size: 0.6em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <div class="control-panel">
+      <span class="app-title">Tracking Analysis for Physics</span>
+      <div class="file-input-section">
+        <div class="file-input-row">
+          <label for="videoInput" class="file-input-label">動画ファイル選択 (MP4, MOV対応)</label>
+          <input type="file" id="videoInput" accept="video/*,.mov,.mp4,.avi,.webm,.mkv,video/quicktime,video/mp4">
+          <div class="file-name-display" id="fileNameDisplay"></div>
+        </div>
+        <div class="file-input-row">
+          <button id="showGuideBtn" class="guide-link">
+            <span>❓</span> 使い方ガイド
+          </button>
+        </div>
+      </div>
+      <div class="control-grid">
+        <div class="control-section">
+          <button id="setOriginBtn">原点設定</button>
+          <button id="setScaleBtn">スケール設定</button>
+          <button id="startTrackingBtn">追跡開始</button>
+        </div>
+        <div class="control-section">
+          <label for="objectCountSelect">物体数</label>
+          <select id="objectCountSelect">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+          <label for="frameIntervalSelect">フレーム間隔</label>
+          <select id="frameIntervalSelect">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <div class="control-section">
+          <button id="playBtn">▶再生</button>
+          <button id="pauseBtn">■停止</button>
+          <button id="prevFrameBtn">⏪戻る</button>
+          <button id="nextFrameBtn">⏩進む</button>
+        </div>
+        <div class="control-section frame-controls">
+          <div class="frame-label">フレーム設定</div>
+          <label>FPS: <input type="text" id="fpsInput" value="30"></label>
+          <div class="frame-range">
+            <label>開始: <input type="text" id="startFrameInput"></label>
+            <label>終了: <input type="text" id="endFrameInput"></label>
+            <span id="currentFrameLabel" class="current-frame">現在フレーム: 0</span>
+          </div>
+        </div>
+        <div class="control-section">
+          <button id="undoBtn" style="display:none;">Undo</button>
+        </div>
+        <div class="control-section data-output-section">
+          <button id="exportCsvBtn">データ出力</button>
+          <button id="resetBtn">全リセット</button>
+        </div>
+      </div>
+      <div class="quick-guide">
+        <div class="guide-step">
+          <span class="step-number">1</span>
+          <span class="step-text">ファイル選択</span>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">2</span>
+          <span class="step-text">原点設定</span>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">3</span>
+          <span class="step-text">スケール設定</span>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">4</span>
+          <span class="step-text">追跡開始（間隔設定）</span>
+        </div>
+        <div class="guide-step">
+          <span class="step-number">5</span>
+          <span class="step-text">データ出力</span>
+        </div>
+      </div>
+    </div>
+    <div class="video-container">
+      <video id="video" width="640" height="480" controls style="display:none;"></video>
+      <canvas id="videoCanvas" width="640" height="480"></canvas>
+      <input type="range" id="frameSlider" min="0" max="100" value="0" step="1">
+    </div>
+  </div>
+  <div class="license-info">
+    © 2025 一般社団法人 国際物理オリンピック2023記念協会 – CC BY-NC 4.0
+  </div>
+
+  <!-- 使い方ガイドモーダル -->
+  <div id="guideModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; overflow-y: auto;">
+    <div style="background: white; margin: 20px auto; max-width: 900px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 32px 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 style="font-size: 1.7em; margin: 0; color: #2277cc;">使い方ガイド</h1>
+        <button id="closeGuideBtn" style="background: #f44336; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer;">×</button>
+      </div>
+      
+      <div class="step" style="margin-bottom: 2.5em; padding: 20px; background: #fafafa; border-radius: 8px; border: 1px solid #e0e0e0;">
+        <h2 style="font-size: 1.3em; margin-top: 0; margin-bottom: 0.8em; color: #2277cc; border-left: 4px solid #2277cc; padding-left: 12px;">1. 動画読み込み・初期設定</h2>
+        
+        <p>
+          <strong>動画の読み込み：</strong>「ファイル選択」ボタンで動画（mp4, mov等）を選択してください
+        </p>
+        
+        <p>
+          動画読み込み後、「フレーム設定」セクションで「FPS」（1秒あたりのフレーム数）を入力します。<br>
+          撮影時のフレームレート（例：30fps、60fps、120fps等）を正確に入力してください。<br>
+          動画下のスライダーで解析範囲を確認し、必要に応じて「開始」「終了」フレーム数を調整してください。
+        </p>
+      </div>
+
+      <div class="step" style="margin-bottom: 2.5em; padding: 20px; background: #fafafa; border-radius: 8px; border: 1px solid #e0e0e0;">
+        <h2 style="font-size: 1.3em; margin-top: 0; margin-bottom: 0.8em; color: #2277cc; border-left: 4px solid #2277cc; padding-left: 12px;">2. 原点・スケール設定</h2>
+        
+        <h3 style="font-size: 1.1em; margin-top: 1.5em; margin-bottom: 0.5em; color: #333;">原点設定</h3>
+        <p>
+          「原点設定」ボタンをクリック → 原点となる点をクリック
+        </p>
+        
+        <h3 style="font-size: 1.1em; margin-top: 1.5em; margin-bottom: 0.5em; color: #333;">スケール設定</h3>
+        <p>
+          「スケール設定」ボタンをクリック → 始点をクリック → 終点をクリック → 実際の長さを入力（例：1.0m）
+        </p>
+        
+        <div class="tip" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 12px; margin: 15px 0;">
+          <strong>便利な機能：</strong>終点クリック時に<strong>Shiftキー</strong>を押すと水平・鉛直制約が適用されます。
+        </div>
+      </div>
+
+      <div class="step" style="margin-bottom: 2.5em; padding: 20px; background: #fafafa; border-radius: 8px; border: 1px solid #e0e0e0;">
+        <h2 style="font-size: 1.3em; margin-top: 0; margin-bottom: 0.8em; color: #2277cc; border-left: 4px solid #2277cc; padding-left: 12px;">3. 追跡実行</h2>
+        
+        <p>
+          「フレーム間隔」と「物体数」を設定（例：間隔20、物体数1）<br>
+          「追跡開始」ボタンをクリック → 各フレームで物体の位置をクリック
+        </p>
+        
+        <div class="tip" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 12px; margin: 15px 0;">
+          <strong>操作ヒント：</strong>「Undo」ボタンで直前の点を取り消せます。繰り返し使用することで複数の点を順次削除できます。
+        </div>
+      </div>
+
+      <div class="step" style="margin-bottom: 2.5em; padding: 20px; background: #fafafa; border-radius: 8px; border: 1px solid #e0e0e0;">
+        <h2 style="font-size: 1.3em; margin-top: 0; margin-bottom: 0.8em; color: #2277cc; border-left: 4px solid #2277cc; padding-left: 12px;">4. データエクスポート</h2>
+        
+        <p>
+          「CSVエクスポート」ボタンをクリック → データ形式を選択（Excel用/CSV）→ データをコピーして保存
+        </p>
+        
+        <div class="tip" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 12px; margin: 15px 0;">
+          <strong>データ形式：</strong>Excel用はタブ区切り、CSVはカンマ区切りです。用途に応じて選択してください。
+        </div>
+      </div>
+
+      <div class="guide-info" style="background: #f0f8ff; border: 1px solid #b3d9ff; border-radius: 6px; padding: 15px; margin: 15px 0;">
+        <strong>重要：</strong>正確な分析のため、動画のフレームレート（FPS）を正確に入力し、原点とスケールを適切に設定してください。
+      </div>
+    </div>
+  </div>
+  <script>
+    /*
+     * Physics Exam Lab - Tracking Analysis Software
+     * Copyright (c) 2025 一般社団法人 国際物理オリンピック2023記念協会
+     * Licensed under the Creative Commons BY-NC 4.0 International License.
+     * See https://creativecommons.org/licenses/by-nc/4.0/
+     */
+
+    // 定数定義
+    const CANVAS_CONSTRAINTS = {
+      MAX_WIDTH: 660,
+      MAX_HEIGHT: 480,
+      MIN_WIDTH: 200,
+      MIN_HEIGHT: 150
+    };
+
+    const UI_CONSTRAINTS = {
+      SLIDER_HEIGHT: 80,
+      SLIDER_MIN_WIDTH: 200,
+      SLIDER_MAX_WIDTH: 600,
+      SLIDER_MARGIN: 40,
+      CONTROL_PANEL_WIDTH: 280
+    };
+
+    const TIMING = {
+      RESIZE_DELAY: 100,
+      FRAME_UPDATE_DELAY: 50,
+      TRACKING_COMPLETE_DELAY: 100
+    };
+
+    const COLORS = {
+      OBJECT_COLORS: ['magenta', 'orange', 'cyan', 'lime', 'purple', 'brown'],
+      SCALE_POINT: 'blue',
+      ORIGIN_POINT: 'red',
+      GUIDE_TEXT: '#c00',
+      GUIDE_TEXT_SUCCESS: '#28a745',
+      GUIDE_TEXT_CURRENT: '#856404',
+      GUIDE_TEXT_PENDING: '#495057',
+      BUTTON_HIGHLIGHT: '#ffd',
+      CANCEL_BUTTON: '#f9f9f9',
+      CANCEL_BORDER: '#aaa',
+      CANCEL_TEXT: '#c00'
+    };
+
+    // グローバル変数
+    let scaleLength = null;
+    let fps = 30;
+    let videoFps = 30;
+    let currentFrame = 0;
+    let startFrame = 0;
+    let endFrame = 0;
+    let totalFrames = 0;
+    let trackingMode = false;
+    let trackingData = [];
+    let currentObjectIndex = 0;
+    let objectCount = 1;
+    let frameInterval = 1;
+    let mode = null;
+    let scalePoints = [];
+    let originPoint = null;
+    let pendingSeekFrame = null;
+
+    // DOM要素の取得
+    const videoInput = document.getElementById('videoInput');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('videoCanvas');
+    const fpsInput = document.getElementById('fpsInput');
+    const startFrameInput = document.getElementById('startFrameInput');
+    const endFrameInput = document.getElementById('endFrameInput');
+    const currentFrameLabel = document.getElementById('currentFrameLabel');
+    const objectCountSelect = document.getElementById('objectCountSelect');
+    const frameIntervalSelect = document.getElementById('frameIntervalSelect');
+    const startTrackingBtn = document.getElementById('startTrackingBtn');
+    const setOriginBtn = document.getElementById('setOriginBtn');
+    const setScaleBtn = document.getElementById('setScaleBtn');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const frameSlider = document.getElementById('frameSlider');
+
+    // ガイドテキスト表示用要素を追加
+    let guideDiv = document.getElementById('guideText');
+    if (!guideDiv) {
+      guideDiv = document.createElement('div');
+      guideDiv.id = 'guideText';
+      guideDiv.style.margin = '8px';
+      guideDiv.style.fontWeight = 'bold';
+      guideDiv.style.color = '#c00';
+      document.querySelector('.video-container').prepend(guideDiv);
+    }
+
+    let guideTextLabel = document.getElementById('guideTextLabel');
+    if (!guideTextLabel) {
+      guideTextLabel = document.createElement('span');
+      guideTextLabel.id = 'guideTextLabel';
+      guideDiv.appendChild(guideTextLabel);
+    }
+
+    // 初期化
+    document.addEventListener('DOMContentLoaded', function() {
+      updateQuickGuideStep(0);
+      initializeEventListeners();
+    });
+
+    function initializeEventListeners() {
+      // ファイル選択
+      videoInput.addEventListener('change', handleFileInput);
+      
+      // 使い方ガイド
+      document.getElementById('showGuideBtn').onclick = () => {
+        document.getElementById('guideModal').style.display = 'block';
+      };
+      document.getElementById('closeGuideBtn').onclick = () => {
+        document.getElementById('guideModal').style.display = 'none';
+      };
+      document.getElementById('guideModal').onclick = (e) => {
+        if (e.target.id === 'guideModal') {
+          document.getElementById('guideModal').style.display = 'none';
+        }
+      };
+      
+      // 動画イベント
+      video.addEventListener('loadedmetadata', handleLoadedMetadata);
+      video.addEventListener('loadeddata', handleLoadedData);
+      video.addEventListener('play', handlePlay);
+      video.addEventListener('pause', handlePause);
+      video.addEventListener('seeked', handleSeeked);
+      video.addEventListener('timeupdate', handleTimeUpdate);
+      video.addEventListener('ended', handleEnded);
+      
+      // ボタンイベント
+      document.getElementById('playBtn').onclick = () => video.play();
+      document.getElementById('pauseBtn').onclick = () => video.pause();
+      document.getElementById('nextFrameBtn').onclick = handleNextFrame;
+      document.getElementById('prevFrameBtn').onclick = handlePrevFrame;
+      startTrackingBtn.onclick = handleStartTracking;
+      setOriginBtn.onclick = handleSetOrigin;
+      setScaleBtn.onclick = handleSetScale;
+      exportCsvBtn.onclick = handleExportCSV;
+      resetBtn.onclick = handleReset;
+      undoBtn.onclick = handleUndo;
+      
+      // セレクトボックス
+      objectCountSelect.addEventListener('change', () => {
+        objectCount = parseInt(objectCountSelect.value) || 1;
+      });
+      frameIntervalSelect.addEventListener('change', () => {
+        frameInterval = parseInt(frameIntervalSelect.value) || 1;
+      });
+      
+      // 入力フィールド
+      fpsInput.addEventListener('change', handleFPSChange);
+      startFrameInput.addEventListener('change', handleStartFrameChange);
+      endFrameInput.addEventListener('change', handleEndFrameChange);
+      frameSlider.addEventListener('input', handleSliderInput);
+      
+      // キャンバスイベント
+      canvas.addEventListener('mousemove', handleCanvasMouseMove);
+      canvas.addEventListener('click', handleCanvasClick);
+      
+      // キーボードイベント
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('resize', handleResize);
+    }
+
+    function handleFileInput() {
+      const file = this.files[0];
+      if (file) {
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        fileNameDisplay.textContent = file.name;
+        updateQuickGuideStep(2);
+        resetTrackingData();
+        
+        const url = URL.createObjectURL(file);
+        video.src = url;
+        video.controls = false;
+        
+        video.addEventListener('loadeddata', function() {
+          setTimeout(() => {
+            resizeCanvasToFit();
+          }, TIMING.RESIZE_DELAY);
+        }, { once: true });
+      }
+    }
+
+    function resetTrackingData() {
+      trackingData = [];
+      scalePoints = [];
+      originPoint = null;
+      scaleLength = null;
+      if (trackingMode) {
+        endTrackingMode();
+      }
+      mode = null;
+      updateGuideText('');
+      disableVideoControls(false);
+      setScaleBtn.style.background = '';
+      setOriginBtn.style.background = '';
+      const cancelBtn = document.getElementById('cancelBtn');
+      if (cancelBtn) cancelBtn.remove();
+      const cancelHint = document.getElementById('cancelHint');
+      if (cancelHint) cancelHint.remove();
+    }
+
+    function handleLoadedMetadata() {
+      setTimeout(() => resizeCanvasToFit(), TIMING.RESIZE_DELAY);
+    }
+
+    function handleLoadedData() {
+      setupVideoFPS();
+    }
+
+    function setupVideoFPS() {
+      if (video.duration > 0) {
+        const userFps = prompt('動画のフレームレート（FPS）を入力してください\n\n例：30, 60, 120\n\n※正確な値を入力しないとフレームが飛んで表示されます', '30');
+        
+        if (userFps !== null && !isNaN(userFps) && parseFloat(userFps) > 0) {
+          videoFps = parseFloat(userFps);
+          fpsInput.value = videoFps;
+          updateFrameSettings(videoFps);
+        } else {
+          videoFps = 30;
+          fpsInput.value = videoFps;
+          updateFrameSettings(videoFps);
+        }
+      } else {
+        videoFps = 30;
+        fpsInput.value = videoFps;
+        updateFrameSettings(videoFps);
+      }
+    }
+
+    function updateFrameSettings(fps) {
+      if (video.duration > 0) {
+        totalFrames = Math.floor(video.duration * fps);
+        currentFrame = 0;
+        startFrame = 0;
+        endFrame = totalFrames - 1;
+        
+        startFrameInput.value = startFrame;
+        endFrameInput.value = endFrame;
+        frameSlider.min = startFrame;
+        frameSlider.max = endFrame;
+        frameSlider.value = 0;
+        
+        updateCurrentFrameLabel();
+        drawOverlay();
+      }
+    }
+
+    function handlePlay() {
+      startFrameDrawing();
+    }
+
+    function handlePause() {
+      drawOverlay();
+    }
+
+    function handleSeeked() {
+      drawOverlay();
+    }
+
+    function handleTimeUpdate() {
+      const f = Math.floor(video.currentTime * videoFps + 1e-3);
+      
+      if (f > endFrame && !video.paused) {
+        video.pause();
+        video.currentTime = endFrame / videoFps;
+        if (trackingMode) {
+          endTrackingMode();
+        }
+        return;
+      }
+      
+      if (pendingSeekFrame !== null) {
+        if (f === pendingSeekFrame) {
+          currentFrame = f;
+          frameSlider.value = f;
+          updateCurrentFrameLabel();
+          pendingSeekFrame = null;
+        }
+        return;
+      }
+      
+      if (f !== currentFrame && !frameSlider.matches(':active')) {
+        currentFrame = f;
+        frameSlider.value = currentFrame;
+        updateCurrentFrameLabel();
+      }
+      
+      if (currentFrame >= endFrame && !video.paused) {
+        video.pause();
+        video.currentTime = endFrame / videoFps;
+      }
+      
+      if (trackingMode && currentFrame >= endFrame) {
+        if (!window.trackingCompleted) {
+          window.trackingCompleted = true;
+          setTimeout(() => {
+            endTrackingMode();
+            updateGuideText('追跡が完了しました');
+            window.trackingCompleted = false;
+          }, TIMING.TRACKING_COMPLETE_DELAY);
+        }
+      }
+    }
+
+    function handleEnded() {
+      currentFrame = endFrame;
+      frameSlider.value = currentFrame;
+      updateCurrentFrameLabel();
+      if (trackingMode) {
+        endTrackingMode();
+        updateGuideText('追跡が完了しました');
+        updateQuickGuideStep(5);
+      }
+    }
+
+    function startFrameDrawing() {
+      const drawFrame = () => {
+        if (!video.paused && !video.ended) {
+          drawOverlay();
+          requestAnimationFrame(drawFrame);
+        }
+      };
+      drawFrame();
+    }
+
+    function handleNextFrame() {
+      video.pause();
+      const frameInterval = parseInt(frameIntervalSelect.value) || 1;
+      if (currentFrame < endFrame) {
+        goToFrame(Math.min(currentFrame + frameInterval, endFrame));
+      }
+    }
+
+    function handlePrevFrame() {
+      if (trackingMode) {
+        const idx = trackingData.findIndex(d => d.frame === currentFrame);
+        if (idx !== -1) {
+          trackingData.splice(idx, 1);
+          drawOverlay();
+        }
+        currentObjectIndex = 0;
+        updateGuideText(`物体1の位置をクリックしてください（${objectCount}物体）`, COLORS.OBJECT_COLORS[0]);
+      }
+      
+      const frameInterval = parseInt(frameIntervalSelect.value) || 1;
+      const targetFrame = Math.max(startFrame, currentFrame - frameInterval);
+      
+      if (targetFrame !== currentFrame) {
+        goToFrame(targetFrame);
+      }
+    }
+
+    function goToFrame(n) {
+      n = Math.max(startFrame, Math.min(endFrame, n|0));
+      pendingSeekFrame = n;
+
+      const drawWhenReady = () => {
+        if (pendingSeekFrame !== null) {
+          currentFrame = pendingSeekFrame;
+          frameSlider.value = currentFrame;
+          updateCurrentFrameLabel();
+          pendingSeekFrame = null;
+        }
+        drawOverlay();
+        
+        if (trackingMode && currentFrame >= endFrame) {
+          if (!window.trackingCompleted) {
+            window.trackingCompleted = true;
+            setTimeout(() => {
+              endTrackingMode();
+              updateGuideText('追跡が完了しました');
+              updateQuickGuideStep(5);
+              window.trackingCompleted = false;
+            }, TIMING.TRACKING_COMPLETE_DELAY);
+          }
+        }
+      };
+
+      if (typeof video.requestVideoFrameCallback === 'function') {
+        const rvfcHandle = video.requestVideoFrameCallback(() => { drawWhenReady(); });
+      } else {
+        requestAnimationFrame(() => requestAnimationFrame(drawWhenReady));
+      }
+
+      video.currentTime = (n + 0.5) / videoFps;
+
+      if (n < endFrame && currentFrame === endFrame) {
+        setTimeout(drawWhenReady, TIMING.FRAME_UPDATE_DELAY);
+      }
+    }
+
+    function handleCanvasMouseMove(e) {
+      if (mode === 'set-scale' || mode === 'set-origin') {
+        canvas.style.cursor = 'crosshair';
+      } else if (trackingMode) {
+        canvas.style.cursor = 'crosshair';
+      } else {
+        canvas.style.cursor = 'default';
+      }
+    }
+
+    function handleCanvasClick(e) {
+      let { x, y } = getCanvasCoords(e);
+      
+      if (mode) {
+        handleModeClick(x, y, e);
+        return;
+      }
+      
+      if (trackingMode) {
+        handleTrackingClick(x, y);
+      }
+    }
+
+    function getCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      return { x, y };
+    }
+
+    function handleModeClick(x, y, e) {
+      if (mode === 'set-scale') {
+        handleScaleClick(x, y, e);
+      } else if (mode === 'set-origin') {
+        handleOriginClick(x, y);
+      }
+    }
+
+    function handleScaleClick(x, y, e) {
+      if (scalePoints.length === 0) {
+        scalePoints.push({ x, y });
+        drawOverlay();
+        updateGuideText('スケール設定: 2点目（終点）をクリックしてください（Shiftキーで水平・鉛直制約）');
+        return;
+      }
+      
+      if (e.shiftKey) {
+        const startPoint = scalePoints[0];
+        const dx = x - startPoint.x;
+        const dy = y - startPoint.y;
+        
+        if (Math.abs(dx) > Math.abs(dy)) {
+          y = startPoint.y;
+        } else {
+          x = startPoint.x;
+        }
+      }
+      
+      scalePoints.push({ x, y });
+      drawOverlay();
+      
+      setTimeout(() => {
+        const proceed = confirm('スケール設定を続行しますか？\n\n「OK」: 距離を入力して設定完了\n「キャンセル」: 設定をキャンセル');
+        if (proceed) {
+          const len = prompt('2点間の実際の長さをメートル単位で入力してください');
+          if (len && !isNaN(len)) {
+            scaleLength = parseFloat(len);
+            drawOverlay();
+            updateQuickGuideStep(4);
+          } else if (len !== null) {
+            alert('有効な数値を入力してください');
+            scaleLength = null;
+          } else {
+            scaleLength = null;
+            scalePoints = [];
+            drawOverlay();
+          }
+        } else {
+          scaleLength = null;
+          scalePoints = [];
+          drawOverlay();
+        }
+        mode = null;
+        updateGuideText('');
+        disableVideoControls(false);
+        setScaleBtn.style.background = '';
+        removeCancelElements();
+      }, 50);
+    }
+
+    function handleOriginClick(x, y) {
+      originPoint = { x, y };
+      mode = null;
+      updateGuideText('');
+      disableVideoControls(false);
+      setOriginBtn.style.background = '';
+      removeCancelElements();
+      drawOverlay();
+      updateQuickGuideStep(3);
+    }
+
+    function handleTrackingClick(x, y) {
+      const phys = getPhysicalCoords(x, y);
+      if (phys) {
+        if (currentFrame > endFrame) {
+          endTrackingMode();
+          return;
+        }
+        
+        let frameData = trackingData.find(d => d.frame === currentFrame);
+        if (!frameData) {
+          frameData = { frame: currentFrame, positions: Array(objectCount).fill(null) };
+          trackingData.push(frameData);
+        }
+        
+        frameData.positions[currentObjectIndex] = { x: phys.x, y: phys.y };
+        drawOverlay();
+        updateUndoBtnVisibility();
+        
+        currentObjectIndex++;
+        if (currentObjectIndex >= objectCount) {
+          currentObjectIndex = 0;
+          goToFrame(currentFrame + frameInterval);
+          updateUndoBtnVisibility();
+        }
+        
+        if (trackingMode) {
+          if (currentFrame > endFrame) {
+            endTrackingMode();
+          } else {
+            const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+            updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください${intervalText}（${objectCount}物体）`, COLORS.OBJECT_COLORS[currentObjectIndex % COLORS.OBJECT_COLORS.length]);
+          }
+        }
+      } else {
+        alert('スケール・原点・スケール長が未設定です');
+      }
+    }
+
+    function handleStartTracking() {
+      if (scalePoints.length < 2 || !scaleLength || !originPoint) {
+        alert('原点とスケールが未設定です。先に原点・スケールを設定してください。');
+        return;
+      }
+      
+      trackingMode = !trackingMode;
+      if (trackingMode) {
+        currentObjectIndex = 0;
+        const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+        updateGuideText(`物体${objectCount === 1 ? '' : '1'}の位置をクリックしてください${intervalText}（${objectCount}物体）`, COLORS.OBJECT_COLORS[0]);
+        startTrackingBtn.style.background = COLORS.BUTTON_HIGHLIGHT;
+        objectCountSelect.disabled = true;
+        if (frameIntervalSelect) frameIntervalSelect.disabled = true;
+        
+        updateQuickGuideStep(4);
+      } else {
+        endTrackingMode();
+      }
+      updateUndoBtnVisibility();
+    }
+
+    function handleSetOrigin() {
+      if (mode === 'set-origin') {
+        mode = null;
+        updateGuideText('');
+        disableVideoControls(false);
+        setOriginBtn.style.background = '';
+        removeCancelElements();
+        drawOverlay();
+      } else {
+        mode = 'set-origin';
+        updateGuideText('原点設定: 原点となる点をクリックしてください');
+        disableVideoControls(true);
+        setOriginBtn.style.background = COLORS.BUTTON_HIGHLIGHT;
+        addCancelElements();
+      }
+    }
+
+    function handleSetScale() {
+      if (mode === 'set-scale') {
+        mode = null;
+        scalePoints = [];
+        updateGuideText('');
+        disableVideoControls(false);
+        setScaleBtn.style.background = '';
+        removeCancelElements();
+        drawOverlay();
+      } else {
+        mode = 'set-scale';
+        scalePoints = [];
+        updateGuideText('スケール設定: 始点と終点をクリックしてください（終点でShiftキーで水平・鉛直制約）');
+        disableVideoControls(true);
+        setScaleBtn.style.background = COLORS.BUTTON_HIGHLIGHT;
+        addCancelElements();
+      }
+    }
+
+    function handleExportCSV() {
+      if (!trackingData.length) {
+        alert('記録データがありません');
+        return;
+      }
+      
+      updateQuickGuideStep(5);
+      
+      const fps = parseFloat(fpsInput.value) || 30;
+      let header = 'time(s)';
+      for (let i = 0; i < objectCount; i++) {
+        header += `,x${i+1}(m),y${i+1}(m)`;
+      }
+      header += '\n';
+      
+      let csv = header;
+      const sorted = trackingData.slice().sort((a, b) => a.frame - b.frame);
+      sorted.forEach(d => {
+        const t = ((d.frame - startFrame) / fps).toFixed(3);
+        let row = [t];
+        for (let i = 0; i < objectCount; i++) {
+          const pos = d.positions && d.positions[i];
+          if (pos) {
+            row.push(pos.x.toFixed(3), pos.y.toFixed(3));
+          } else {
+            row.push('', '');
+          }
+        }
+        csv += row.join(',') + '\n';
+      });
+      
+      const tabData = csv.replace(/,/g, '\t');
+      showFormatSelectionDialog(tabData, csv);
+    }
+
+    function handleReset() {
+      if (confirm('すべての設定とデータをリセットしますか？\n\n• 原点・スケール設定\n• 追跡データ\n• フレーム設定\n\n※未保存のデータは失われます')) {
+        window.location.reload();
+      }
+    }
+
+    function handleUndo() {
+      if (!trackingMode) return;
+      
+      let frameData = trackingData.find(d => d.frame === currentFrame);
+      if (frameData) {
+        if (currentObjectIndex > 0) {
+          frameData.positions[currentObjectIndex - 1] = null;
+          currentObjectIndex--;
+          drawOverlay();
+          const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+          updateGuideText(`物体${currentObjectIndex + 1}の位置をクリックしてください${intervalText}（${objectCount}物体）`, COLORS.OBJECT_COLORS[currentObjectIndex % COLORS.OBJECT_COLORS.length]);
+          return;
+        }
+      }
+      
+      if (currentFrame > startFrame) {
+        const prevFrame = Math.max(startFrame, currentFrame - frameInterval);
+        goToFrame(prevFrame);
+        const idx = trackingData.findIndex(d => d.frame === prevFrame);
+        if (idx !== -1) {
+          trackingData.splice(idx, 1);
+        }
+        currentObjectIndex = 0;
+        const intervalText = frameInterval === 1 ? '' : `（${frameInterval}フレームごと）`;
+        updateGuideText(`物体1の位置をクリックしてください${intervalText}（${objectCount}物体）`, COLORS.OBJECT_COLORS[0]);
+      }
+    }
+
+    function handleFPSChange() {
+      const newFps = parseFloat(fpsInput.value) || 30;
+      if (newFps > 0) {
+        videoFps = newFps;
+        if (video.duration > 0) {
+          totalFrames = Math.floor(video.duration * videoFps);
+          endFrame = totalFrames - 1;
+          endFrameInput.value = endFrame;
+          frameSlider.max = endFrame;
+          
+          if (currentFrame > endFrame) {
+            currentFrame = endFrame;
+            frameSlider.value = currentFrame;
+            video.currentTime = currentFrame / videoFps;
+          }
+          updateCurrentFrameLabel();
+        }
+      }
+    }
+
+    function handleStartFrameChange() {
+      startFrame = parseInt(startFrameInput.value) || 0;
+      frameSlider.min = startFrame;
+      
+      let moved = false;
+      if (currentFrame < startFrame || currentFrame > endFrame) {
+        if (Math.abs(currentFrame - startFrame) <= Math.abs(currentFrame - endFrame)) {
+          currentFrame = startFrame;
+        } else {
+          currentFrame = endFrame;
+        }
+        frameSlider.value = currentFrame;
+        moved = true;
+      }
+      
+      if (moved) {
+        video.currentTime = currentFrame / videoFps;
+      }
+      updateCurrentFrameLabel();
+    }
+
+    function handleEndFrameChange() {
+      endFrame = parseInt(endFrameInput.value) || (totalFrames - 1);
+      frameSlider.max = endFrame;
+      
+      let moved = false;
+      if (currentFrame < startFrame || currentFrame > endFrame) {
+        if (Math.abs(currentFrame - startFrame) <= Math.abs(currentFrame - endFrame)) {
+          currentFrame = startFrame;
+        } else {
+          currentFrame = endFrame;
+        }
+        frameSlider.value = currentFrame;
+        moved = true;
+      }
+      
+      if (moved) {
+        video.currentTime = currentFrame / videoFps;
+      }
+      updateCurrentFrameLabel();
+    }
+
+    function handleSliderInput() {
+      pendingSeekFrame = parseInt(frameSlider.value) || 0;
+      currentFrame = pendingSeekFrame;
+      video.currentTime = currentFrame / videoFps;
+      updateCurrentFrameLabel();
+      
+      setTimeout(() => {
+        pendingSeekFrame = null;
+      }, TIMING.FRAME_UPDATE_DELAY);
+    }
+
+    function handleKeyDown(e) {
+      if (e.key === 'Escape' && (mode === 'set-scale' || mode === 'set-origin')) {
+        e.preventDefault();
+        mode = null;
+        scalePoints = [];
+        updateGuideText('');
+        disableVideoControls(false);
+        setScaleBtn.style.background = '';
+        setOriginBtn.style.background = '';
+        
+        const cancelBtn = document.getElementById('cancelBtn');
+        if (cancelBtn) cancelBtn.remove();
+        const cancelHint = document.getElementById('cancelHint');
+        if (cancelHint) cancelHint.remove();
+        
+        drawOverlay();
+        return;
+      }
+      
+      if (!trackingMode) return;
+      if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') {
+        e.preventDefault();
+        undoBtn.click();
+      }
+    }
+
+    function handleResize() {
+      clearTimeout(window.resizeTimeout);
+      window.resizeTimeout = setTimeout(() => {
+        resizeCanvasToFit();
+        drawOverlay();
+      }, TIMING.RESIZE_DELAY);
+    }
+
+    function updateGuideText(text, color) {
+      guideTextLabel.textContent = text || '';
+      if (color) {
+        guideDiv.style.color = color;
+      } else {
+        guideDiv.style.color = '#c00';
+      }
+    }
+
+    function updateQuickGuideStep(step) {
+      const guideSteps = document.querySelectorAll('.guide-step');
+      
+      guideSteps.forEach((stepElement, index) => {
+        const stepNumber = stepElement.querySelector('.step-number');
+        const stepText = stepElement.querySelector('.step-text');
+        
+        if (index < step - 1) {
+          stepNumber.style.background = COLORS.GUIDE_TEXT_SUCCESS;
+          stepText.style.color = COLORS.GUIDE_TEXT_SUCCESS;
+          stepText.style.fontWeight = 'bold';
+        } else if (index === step - 1) {
+          stepNumber.style.background = '#ffc107';
+          stepText.style.color = COLORS.GUIDE_TEXT_CURRENT;
+          stepText.style.fontWeight = 'bold';
+        } else {
+          stepNumber.style.background = '#2277cc';
+          stepText.style.color = COLORS.GUIDE_TEXT_PENDING;
+          stepText.style.fontWeight = '500';
+        }
+      });
+    }
+
+    function updateCurrentFrameLabel() {
+      const frameNumber = currentFrame ?? 0;
+      currentFrameLabel.textContent = `現在フレーム: ${frameNumber}`;
+    }
+
+    function updateUndoBtnVisibility() {
+      if (trackingMode) {
+        undoBtn.style.display = '';
+        undoBtn.style.marginLeft = '8px';
+        undoBtn.style.fontSize = '0.95em';
+        undoBtn.style.background = '#f9f9f9';
+        undoBtn.style.border = '1px solid #aaa';
+        undoBtn.style.color = '#c00';
+        undoBtn.style.fontWeight = 'normal';
+        undoBtn.style.borderRadius = '4px';
+        undoBtn.style.padding = '1px 8px';
+        undoBtn.style.cursor = 'pointer';
+      } else {
+        undoBtn.style.display = 'none';
+      }
+    }
+
+    function endTrackingMode() {
+      trackingMode = false;
+      updateGuideText('');
+      startTrackingBtn.style.background = '';
+      objectCountSelect.disabled = false;
+      if (frameIntervalSelect) frameIntervalSelect.disabled = false;
+      updateUndoBtnVisibility();
+      
+      if (currentFrame >= endFrame || trackingData.length > 0) {
+        updateQuickGuideStep(5);
+      }
+    }
+
+    function addCancelElements() {
+      if (!document.getElementById('cancelBtn')) {
+        const cancelBtn = createCancelButton(() => {
+          mode = null;
+          scalePoints = [];
+          updateGuideText('');
+          disableVideoControls(false);
+          setScaleBtn.style.background = '';
+          setOriginBtn.style.background = '';
+          removeCancelElements();
+          drawOverlay();
+        });
+        guideDiv.appendChild(cancelBtn);
+      }
+    }
+
+    function removeCancelElements() {
+      const cancelBtn = document.getElementById('cancelBtn');
+      if (cancelBtn) cancelBtn.remove();
+    }
+
+    function createCancelButton(onCancel) {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.id = 'cancelBtn';
+      cancelBtn.textContent = 'キャンセル';
+      cancelBtn.style.marginLeft = '8px';
+      cancelBtn.style.fontSize = '0.95em';
+      cancelBtn.style.background = COLORS.CANCEL_BUTTON;
+      cancelBtn.style.border = `1px solid ${COLORS.CANCEL_BORDER}`;
+      cancelBtn.style.color = COLORS.CANCEL_TEXT;
+      cancelBtn.style.fontWeight = 'normal';
+      cancelBtn.style.borderRadius = '4px';
+      cancelBtn.style.padding = '1px 8px';
+      cancelBtn.style.cursor = 'pointer';
+      cancelBtn.onclick = onCancel;
+      return cancelBtn;
+    }
+
+    function disableVideoControls(disable) {
+      document.getElementById('playBtn').disabled = disable;
+      document.getElementById('pauseBtn').disabled = disable;
+      document.getElementById('prevFrameBtn').disabled = disable;
+      document.getElementById('nextFrameBtn').disabled = disable;
+    }
+
+    function resizeCanvasToFit() {
+      const oldCanvasWidth = canvas.width;
+      const oldCanvasHeight = canvas.height;
+      
+      const available = calculateAvailableSpace();
+      const size = calculateCanvasSize(available.width, available.height, video.videoWidth, video.videoHeight);
+      
+      const finalWidth = Math.max(CANVAS_CONSTRAINTS.MIN_WIDTH, size.width);
+      const finalHeight = Math.max(CANVAS_CONSTRAINTS.MIN_HEIGHT, size.height);
+      
+      canvas.width = Math.floor(finalWidth);
+      canvas.height = Math.floor(finalHeight);
+      
+      adjustSliderSize(available.width);
+      adjustCoordinates(oldCanvasWidth, oldCanvasHeight, canvas.width, canvas.height);
+      
+      drawOverlay();
+    }
+
+    function calculateAvailableSpace() {
+      const controlPanel = document.querySelector('.control-panel');
+      const controlPanelWidth = controlPanel ? controlPanel.offsetWidth : UI_CONSTRAINTS.CONTROL_PANEL_WIDTH;
+      
+      const videoContainer = document.querySelector('.video-container');
+      const actualHeight = videoContainer ? videoContainer.offsetHeight : window.innerHeight;
+      const actualWidth = videoContainer ? videoContainer.offsetWidth : window.innerWidth - controlPanelWidth;
+      
+      return {
+        width: actualWidth,
+        height: actualHeight - UI_CONSTRAINTS.SLIDER_HEIGHT
+      };
+    }
+
+    function calculateCanvasSize(availableWidth, availableHeight, videoWidth, videoHeight) {
+      if (!videoWidth || !videoHeight) {
+        return { width: availableWidth, height: availableHeight };
+      }
+      
+      const aspect = videoWidth / videoHeight;
+      
+      if (aspect < 1.0) {
+        let h = availableHeight;
+        let w = h * aspect;
+        if (w > availableWidth) {
+          w = availableWidth;
+          h = w / aspect;
+        }
+        return { width: w, height: h };
+      } else {
+        let w = availableWidth;
+        let h = w / aspect;
+        if (h > availableHeight) {
+          h = availableHeight;
+          w = h / aspect;
+        }
+        return { width: w, height: h };
+      }
+    }
+
+    function adjustSliderSize(availableWidth) {
+      const slider = document.getElementById('frameSlider');
+      if (slider) {
+        const sliderWidth = Math.max(
+          UI_CONSTRAINTS.SLIDER_MIN_WIDTH, 
+          Math.min(availableWidth - UI_CONSTRAINTS.SLIDER_MARGIN, UI_CONSTRAINTS.SLIDER_MAX_WIDTH)
+        );
+        slider.style.width = sliderWidth + 'px';
+        slider.style.margin = '12px auto 0 auto';
+      }
+    }
+
+    function adjustCoordinates(oldWidth, oldHeight, newWidth, newHeight) {
+      if (oldWidth > 0 && oldHeight > 0) {
+        const scaleX = newWidth / oldWidth;
+        const scaleY = newHeight / oldHeight;
+        
+        scalePoints.forEach(pt => {
+          pt.x *= scaleX;
+          pt.y *= scaleY;
+        });
+        
+        if (originPoint) {
+          originPoint.x *= scaleX;
+          originPoint.y *= scaleY;
+        }
+      }
+    }
+
+    function drawOverlay() {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      
+      if (video.videoWidth && video.videoHeight) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      }
+      
+      // スケール点
+      ctx.fillStyle = 'blue';
+      scalePoints.forEach(pt => {
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 2.5, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+      
+      // スケール線と距離表示
+      if (scalePoints.length >= 2) {
+        const [p0, p1] = scalePoints;
+        ctx.strokeStyle = 'rgba(0, 0, 255, 0.4)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+        
+        if (scaleLength !== null) {
+          const midX = (p0.x + p1.x) / 2;
+          const midY = (p0.y + p1.y) / 2;
+          
+          ctx.fillStyle = 'rgba(0, 0, 255, 0.6)';
+          ctx.font = '10px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          const text = `${scaleLength} m`;
+          const textMetrics = ctx.measureText(text);
+          const padding = 1;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.fillRect(
+            midX - textMetrics.width/2 - padding, 
+            midY - 5 - padding, 
+            textMetrics.width + padding * 2, 
+            10 + padding * 2
+          );
+          
+          ctx.fillStyle = 'rgba(0, 0, 255, 0.6)';
+          ctx.fillText(text, midX, midY);
+        }
+      }
+      
+      // 原点
+      if (originPoint) {
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(originPoint.x, originPoint.y, 6, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(originPoint.x - 8, originPoint.y);
+        ctx.lineTo(originPoint.x + 8, originPoint.y);
+        ctx.moveTo(originPoint.x, originPoint.y - 8);
+        ctx.lineTo(originPoint.x, originPoint.y + 8);
+        ctx.stroke();
+      }
+      
+      // 記録点
+      trackingData.forEach(d => {
+        if (!d.positions) return;
+        d.positions.forEach((pos, idx) => {
+          if (!pos) return;
+          const pt = physicalToCanvas(pos.x, pos.y);
+          if (pt) {
+            ctx.fillStyle = COLORS.OBJECT_COLORS[idx % COLORS.OBJECT_COLORS.length];
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 2.2, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        });
+      });
+      
+      // 座標軸を描画
+      drawCoordinateAxes(ctx, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
+    function getPhysicalCoords(canvasX, canvasY) {
+      if (scalePoints.length < 2 || !scaleLength || !originPoint) return null;
+      const [p0, p1] = scalePoints;
+      const dx = p1.x - p0.x;
+      const dy = p1.y - p0.y;
+      const pixelDist = Math.sqrt(dx * dx + dy * dy);
+      if (pixelDist === 0) return null;
+      
+      let theta;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0) {
+          theta = Math.atan2(dy, dx);
+        } else {
+          theta = Math.atan2(dy, dx) + Math.PI;
+        }
+      } else {
+        theta = Math.atan2(dx, -dy);
+        if (dy > 0) theta += Math.PI;
+      }
+      
+      const relX = canvasX - originPoint.x;
+      const relY = canvasY - originPoint.y;
+      const x_rot =  Math.cos(-theta) * relX - Math.sin(-theta) * relY;
+      const y_rot =  Math.sin(-theta) * relX + Math.cos(-theta) * relY;
+      const scale = scaleLength / pixelDist;
+      const x_phys = x_rot * scale;
+      const y_phys = -y_rot * scale;
+      return { x: x_phys, y: y_phys };
+    }
+
+    function physicalToCanvas(x_phys, y_phys) {
+      if (scalePoints.length < 2 || !scaleLength || !originPoint) return null;
+      const [p0, p1] = scalePoints;
+      const dx = p1.x - p0.x;
+      const dy = p1.y - p0.y;
+      const pixelDist = Math.sqrt(dx * dx + dy * dy);
+      if (pixelDist === 0) return null;
+      
+      let theta;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0) {
+          theta = Math.atan2(dy, dx);
+        } else {
+          theta = Math.atan2(dy, dx) + Math.PI;
+        }
+      } else {
+        theta = Math.atan2(dx, -dy);
+        if (dy > 0) theta += Math.PI;
+      }
+      
+      const scale = pixelDist / scaleLength;
+      const x_rot =  Math.cos(theta) * x_phys - Math.sin(theta) * (-y_phys);
+      const y_rot =  Math.sin(theta) * x_phys + Math.cos(theta) * (-y_phys);
+      const relX = x_rot * scale;
+      const relY = y_rot * scale;
+      const x = originPoint.x + relX;
+      const y = originPoint.y + relY;
+      return { x: x, y: y };
+    }
+
+    function drawCoordinateAxes(ctx, cw, ch) {
+      if (!originPoint || scalePoints.length < 2 || !scaleLength) {
+        return;
+      }
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      const [p0, p1] = scalePoints;
+      const dx = p1.x - p0.x;
+      const dy = p1.y - p0.y;
+      const pixelDist = Math.sqrt(dx * dx + dy * dy);
+      
+      let theta;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0) {
+          theta = Math.atan2(dy, dx);
+        } else {
+          theta = Math.atan2(dy, dx) + Math.PI;
+        }
+      } else {
+        if (dy > 0) {
+          theta = Math.PI / 2;
+        } else {
+          theta = -Math.PI / 2;
+        }
+      }
+      
+      let axisLength = Math.min(cw, ch) * 0.2;
+      ctx.translate(originPoint.x, originPoint.y);
+      ctx.rotate(theta);
+      
+      // X軸
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-axisLength, 0);
+      ctx.lineTo(axisLength, 0);
+      ctx.stroke();
+      
+      // X軸矢印
+      ctx.save();
+      ctx.translate(axisLength, 0);
+      ctx.rotate(0);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-4, -2);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-4, 2);
+      ctx.stroke();
+      ctx.restore();
+      
+      // Y軸
+      ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(0, axisLength);
+      ctx.lineTo(0, -axisLength);
+      ctx.stroke();
+      
+      // Y軸矢印
+      ctx.save();
+      ctx.translate(0, -axisLength);
+      ctx.rotate(-Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-4, -2);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-4, 2);
+      ctx.stroke();
+      ctx.restore();
+      
+      ctx.restore();
+    }
+
+    function showFormatSelectionDialog(tabData, csvData) {
+      const existingDialog = document.getElementById('formatSelectionDialog');
+      if (existingDialog) {
+        existingDialog.remove();
+      }
+      
+      const dialog = document.createElement('div');
+      dialog.id = 'formatSelectionDialog';
+      dialog.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+      `;
+      
+      const dialogContent = document.createElement('div');
+      dialogContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        max-width: 400px;
+        text-align: center;
+      `;
+      
+      dialogContent.innerHTML = `
+        <h3 style="margin: 0 0 20px 0; color: #333;">データ形式を選択してください</h3>
+        <div style="display: flex; gap: 15px; justify-content: center;">
+          <button id="tabBtn" style="
+            padding: 12px 24px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+          ">Excel用</button>
+          <button id="csvBtn" style="
+            padding: 12px 24px;
+            background: #34C759;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+          ">CSV</button>
+        </div>
+      `;
+      
+      dialog.appendChild(dialogContent);
+      document.body.appendChild(dialog);
+      
+      document.getElementById('tabBtn').onclick = () => {
+        dialog.remove();
+        showCopyDialog(tabData, 'Excel用（タブ区切り）');
+      };
+      
+      document.getElementById('csvBtn').onclick = () => {
+        dialog.remove();
+        showCopyDialog(csvData, 'CSV形式');
+      };
+      
+      dialog.onclick = (e) => {
+        if (e.target === dialog) {
+          dialog.remove();
+        }
+      };
+    }
+
+    function showCopyDialog(data, formatType) {
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      `;
+      
+      const content = document.createElement('div');
+      content.style.cssText = `
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 90%;
+        max-height: 80%;
+        overflow: auto;
+      `;
+      
+      const title = document.createElement('h3');
+      title.textContent = `${formatType}データ`;
+      title.style.marginBottom = '15px';
+      
+      const instructions = document.createElement('p');
+      instructions.textContent = `1. 以下のデータを選択（長押しまたはドラッグ）\n2. 右クリックまたは長押しで「コピー」を選択\n3. ${formatType === 'Excel用（タブ区切り）' ? 'ExcelでA1セルを選択してペースト' : 'メモ帳などにペーストして保存'}`;
+      instructions.style.marginBottom = '15px';
+      
+      const textarea = document.createElement('textarea');
+      textarea.value = data;
+      textarea.style.cssText = `
+        width: 100%;
+        height: 200px;
+        font-family: monospace;
+        font-size: 12px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 15px;
+      `;
+      textarea.readOnly = true;
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '閉じる';
+      closeBtn.style.cssText = `
+        padding: 10px 20px;
+        background: #007AFF;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+      `;
+      closeBtn.onclick = () => {
+        document.body.removeChild(modal);
+      };
+      
+      content.appendChild(title);
+      content.appendChild(instructions);
+      content.appendChild(textarea);
+      content.appendChild(closeBtn);
+      modal.appendChild(content);
+      document.body.appendChild(modal);
+      
+      textarea.select();
+    }
+
+    // 初期値を設定
+    frameInterval = parseInt(frameIntervalSelect.value) || 1;
+    objectCount = parseInt(objectCountSelect.value) || 1;
+  </script>
+</body>
+</html>

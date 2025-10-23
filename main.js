@@ -444,6 +444,31 @@ class UIEventManager {
   handleFileInput() {
     const file = this.files[0];
     if (file) {
+      // ファイル形式の検証（.movと.mp4を優先的にサポート）
+      const validVideoTypes = [
+        'video/mp4', 'video/mp4v-es', 'video/x-m4v',
+        'video/quicktime', 'video/x-quicktime',
+        'video/x-msvideo', 'video/avi',
+        'video/webm', 'video/x-matroska'
+      ];
+      const fileExtension = file.name.toLowerCase().split('.').pop();
+      const validExtensions = ['mp4', 'm4v', 'mov', 'avi', 'webm', 'mkv'];
+      
+      // .movと.mp4ファイルは特別に許可（MIMEタイプが不明でも拡張子で判断）
+      const isMovOrMp4 = fileExtension === 'mov' || fileExtension === 'mp4' || fileExtension === 'm4v';
+      const hasValidMimeType = validVideoTypes.includes(file.type);
+      const hasValidExtension = validExtensions.includes(fileExtension);
+      
+      if (!hasValidMimeType && !hasValidExtension) {
+        alert('サポートされていないファイル形式です。\n対応形式: MP4, MOV, AVI, WebM, MKV\n\n※Chromebookで.movファイルが表示されない場合は、.mp4形式に変換してください。');
+        return;
+      }
+      
+      // .movファイルの場合は特別な処理
+      if (fileExtension === 'mov') {
+        console.log('MOVファイルが選択されました:', file.name);
+      }
+      
       // ファイル名を表示
       const fileNameDisplay = document.getElementById('fileNameDisplay');
       fileNameDisplay.textContent = file.name;
@@ -454,16 +479,32 @@ class UIEventManager {
       // 新しいファイル読み込み時にリセット処理を実行
       this.resetTrackingData();
       
-      const url = URL.createObjectURL(file);
-      video.src = url;
-      video.controls = false;
-      
-      // 動画の読み込みが完了したらリサイズを実行
-      video.addEventListener('loadeddata', function() {
-        setTimeout(() => {
-          resizeCanvasToFit();
-        }, TIMING.RESIZE_DELAY);
-      }, { once: true });
+      try {
+        const url = URL.createObjectURL(file);
+        video.src = url;
+        video.controls = false;
+        
+        // エラーハンドリング
+        video.addEventListener('error', function(e) {
+          const errorMessage = fileExtension === 'mov' 
+            ? 'MOVファイルの読み込みに失敗しました。\n\n対処法:\n1. ファイルを.mp4形式に変換してください\n2. VLCメディアプレーヤーでファイルが正常に再生できるか確認してください\n3. Chromebookの場合は、Google Driveから直接開くのではなく、ローカルにダウンロードしてから開いてください'
+            : '動画ファイルの読み込みに失敗しました。\nファイルが破損しているか、サポートされていない形式の可能性があります。';
+          
+          alert(errorMessage);
+          URL.revokeObjectURL(url);
+          console.error('Video loading error:', e);
+        }, { once: true });
+        
+        // 動画の読み込みが完了したらリサイズを実行
+        video.addEventListener('loadeddata', function() {
+          setTimeout(() => {
+            resizeCanvasToFit();
+          }, TIMING.RESIZE_DELAY);
+        }, { once: true });
+        
+      } catch (error) {
+        alert('ファイルの読み込み中にエラーが発生しました: ' + error.message);
+      }
     }
   }
   
@@ -1226,53 +1267,7 @@ function resizeCanvasToFit() {
   drawOverlay();
 }
 
-videoInput.addEventListener('change', function() {
-  const file = this.files[0];
-  if (file) {
-    // ファイル名を表示
-    const fileNameDisplay = document.getElementById('fileNameDisplay');
-    // ファイル名を表示
-    fileNameDisplay.textContent = file.name;
-    
-    // クイックガイドのステップを更新
-    updateQuickGuideStep(2);
-    
-    // 新しいファイル読み込み時にリセット処理を実行
-    // 追跡データをクリア
-    trackingData = [];
-    // スケール・原点設定をクリア
-    scalePoints = [];
-    originPoint = null;
-    scaleLength = null;
-    // 追跡モードを終了
-    if (trackingMode) {
-      endTrackingMode();
-    }
-    // 設定モードをクリア
-    mode = null;
-    updateGuideText('');
-    disableVideoControls(false);
-    // ボタンのハイライトを解除
-    setScaleBtn.style.background = '';
-    setOriginBtn.style.background = '';
-    // キャンセルボタンと案内を削除
-    const cancelBtn = document.getElementById('cancelBtn');
-    if (cancelBtn) cancelBtn.remove();
-    const cancelHint = document.getElementById('cancelHint');
-    if (cancelHint) cancelHint.remove();
-    
-    const url = URL.createObjectURL(file);
-    video.src = url;
-    video.controls = false;
-    
-    // 動画の読み込みが完了したらリサイズを実行
-    video.addEventListener('loadeddata', function() {
-      setTimeout(() => {
-        resizeCanvasToFit();
-      }, TIMING.RESIZE_DELAY);
-    }, { once: true });
-  }
-});
+// 重複したファイル選択イベントリスナーは削除（UIEventManagerで管理）
 
 // --- Accurate frame stepping helpers ---
 let pendingSeekFrame = null;
